@@ -1,28 +1,30 @@
 classdef VideoFrameExtractor
     properties(Access='private')
         % Abhängigkeiten dieser Klasse
-        videoReader (1,1) VideoReader
+        videoReader,
+        frameConverter
     end
 
     methods
         % Konstruktor setzt Abhängigkeiten als properties
-        function obj = VideoFrameExtractor(videoReader)
+        function obj = VideoFrameExtractor(videoReader, frameConverter)
             obj.videoReader = videoReader; % Speichere videoReader als property
+            obj.frameConverter = frameConverter;
         end
 
         % Frames extrahieren
-        function [obj, frames] = extractFrames(obj)
-            video = obj.videoReader.read();
+        function frames = extractFrames(obj)
             fprintf('Start extracting frames...\n');
-            frames = zeros(video.Height, video.Width, video.Duration * video.FrameRate); % 3D-Matrix: Höhe, Breite, Frame Anzahl
+            frameAmount = floor(obj.videoReader.Duration * obj.videoReader.FrameRate);
+            frames = cell(1, frameAmount);
             frameIndex = 1;
 
-            while (video.hasFrame())
-                frame = video.readFrame();
-                frames(:, :, frameIndex) = frame; % Das aktuelle Frame wird als 2D-Matrix in der temporären 3D-Matrix frames gespeichert
+            while (hasFrame(obj.videoReader))
+                frame = readFrame(obj.videoReader);
+                frames{frameIndex} = obj.frameConverter.convert(frame); % Das aktuelle Frame wird in frames gespeichert
                 frameIndex = frameIndex + 1; % Die dritte Dimension (frameIndex) gibt an, welches Frame gespeichert wird.
             end
-            fprintf('Frame-Extraction completed. Amount of frames: %d\n', frameIndex - 1);
+            fprintf('Frame-Extraction completed. Amount of frames: %d\n', frameAmount);
         end
     end
 end
