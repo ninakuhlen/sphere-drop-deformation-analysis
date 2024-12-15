@@ -6,7 +6,8 @@ classdef VideoFrameExtractor
     end
 
     methods
-        % Konstruktor setzt Abhängigkeiten als properties
+        % Konstruktor setzt Abhängigkeiten als properties, hier werden alle
+        % Klassen eingefügt, die von dieser Klasse verwendet werden
         function obj = VideoFrameExtractor(videoReader, frameConverter)
             obj.videoReader = videoReader; % Speichere videoReader als property
             obj.frameConverter = frameConverter;
@@ -21,8 +22,9 @@ classdef VideoFrameExtractor
 
             while (hasFrame(obj.videoReader))
                 frame = readFrame(obj.videoReader);
-                frames{frameIndex} = obj.frameConverter.convert(frame); % Das aktuelle Frame wird in frames gespeichert
-                frameIndex = frameIndex + 1; % Die dritte Dimension (frameIndex) gibt an, welches Frame gespeichert wird.
+                binarizedFrameDto = obj.frameConverter.convert(frameIndex, frame);
+                frames{frameIndex} = binarizedFrameDto;  % Das aktuelle Frame wird konvertiert und in frames[] an der Position frameIndex gespeichert
+                frameIndex = frameIndex + 1;
             end
             fprintf('Frame-Extraction completed. Amount of frames: %d\n', frameAmount);
         end
