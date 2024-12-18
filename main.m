@@ -28,14 +28,6 @@ show(figure);
 
 % Instanz von VideoReader stellen um aus Datei-Pfad Video laden zu können
 
-% Video laden und Frames extrahieren
-videoFrameExtractor = VideoFrameExtractor(videoReader, frameConverter);
-fprintf('Create VideoFrameExtractor object...\n');
-% hier ist ein array aus BinarizedFrame Objekten
-extractedBinarizedFrames = videoFrameExtractor.extractFrames();
-
-extractedBinarizedFrame = extractedBinarizedFrames{100}; % das XY Frame auslesen
-frameInspector = FrameInspector(extractedBinarizedFrame);
 % Frames aus Video inspizieren
 % FrameInspector.displayFrameResolution(extractedVideoFrames);
 % frameInspector.displayFrame();

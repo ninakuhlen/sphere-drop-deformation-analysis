@@ -9,12 +9,6 @@ classdef FrameConverter
             obj.brightnessThreshold = brightnessThreshold;
         end
 
-        % Kapselung der Konvertierungsmethoden
-        function binarizedFrame = convert(obj, frameIndex, frame)
-            grayFrame = obj.convertToGrayFrame(frame);
-            binarizedFrame = obj.convertToBinaryFrame(frameIndex, grayFrame);
-        end
-
         % Konvertierungs-Methoden
         function grayFrame = convertToGrayFrame(~, frame)
             if size(frame, 3) == 1
@@ -27,11 +21,6 @@ classdef FrameConverter
             end
 
             error('invalid amount of bands');
-        end
-
-        function binarizedFrameDto = convertToBinaryFrame(obj, frameIndex, grayFrame)
-            binaryFrame = imbinarize(grayFrame, obj.brightnessThreshold / 255); % normalisierter Threshold
-            binarizedFrameDto = BinarizedFrameDto(frameIndex, grayFrame, binaryFrame);
         end
     end
 end
