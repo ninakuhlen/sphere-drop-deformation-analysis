@@ -9,10 +9,10 @@ classdef Histogram < FigureComponent
             obj.image = image;
         end
         
-        function show(obj)
+        function show(obj, ~)
             imhist(obj.image);
             axis tight;
-            ylim([0 200]); % Zeigt nur bis Höhe 200 an, um Details besser zu erkennen
+            ylim([0 1200]); % Zeigt nur bis Höhe 200 an, um Details besser zu erkennen
             drawnow;
         end
     end
