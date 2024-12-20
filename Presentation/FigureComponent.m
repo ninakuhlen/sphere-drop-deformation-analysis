@@ -6,7 +6,7 @@ classdef (Abstract) FigureComponent % es kann keine Instanz von FigureComponent 
     end
 
     methods(Abstract)
-        show(~) % muss bei Vererbung implementiert werden
+        show(~, figureId) % muss bei Vererbung implementiert werden
     end
 
     methods

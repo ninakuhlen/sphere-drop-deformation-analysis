@@ -5,26 +5,33 @@ addpath('Presentation\')
 % Variablen
 brightnessThreshold = 10;
 videoPath = "../testVideo1.avi";
-
+figureId = 1;
+% [file, location] = uigetfile('*.avi');
+% if isequal(file, 0)
+%     error('file not found');
+% else
+%     videoPath = fullfile(location, file);
+% end
 % Instanz von FrameConverter erstellen
 frameConverter = FrameConverter(brightnessThreshold);
 
 % Video Player erstellen
 videoReader = VideoReader(videoPath);
 
-videoPlayerHandle = VideoPlayerHandle(videoReader);
+videoPlayerHandle = VideoPlayerHandle(figureId, videoReader);
 videoPlayer = VideoPlayer(videoPlayerHandle, 1, 2, 2);
+videoPlayerControls = VideoPlayerControls(videoPlayerHandle, 3, 1, 1); % z. B. im gleichen Grid wie VideoPlayer & Histogram
 
-figure = Figure(1, {videoPlayer}); % cell array erstellen (kann unterschiedliche objekt types beinhalten (Historgram oder VideoPlayer))
+figureObj = Figure(figureId, {videoPlayerControls, videoPlayer}); % cell array erstellen (kann unterschiedliche objekt types beinhalten (Historgram oder VideoPlayer))
 
 % event listener registrieren um callback function für jedes frame update
 % aufzurufen
 videoPlayerHandle.registerHandler( ...
     "VideoFrameUpdated", ...
-    @(src,event) videoFrameUpdatedCallback(src, event, figure, frameConverter) ...
+    @(src,event) videoFrameUpdatedCallback(src, event, figureObj, frameConverter) ...
 );
 
-show(figure);
+show(figureObj);
 
 % Instanz von VideoReader stellen um aus Datei-Pfad Video laden zu können
 

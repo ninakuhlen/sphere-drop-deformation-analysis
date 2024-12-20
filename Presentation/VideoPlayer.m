@@ -9,8 +9,8 @@ classdef VideoPlayer < FigureComponent
             obj.videoPlayerHandle = videoPlayerHandle;
         end
 
-        function show(obj)
-            play(obj.videoPlayerHandle);
+        function show(obj, ~)
+            obj.videoPlayerHandle.preview();
         end
     end
 end
