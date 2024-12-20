@@ -23,12 +23,12 @@ classdef Figure
             end
         end
 
-        function showComponent(~, component)
+        function showComponent(obj, component)
             row = getRow(component);
             column = getColumn(component);
             position = getPosition(component);
             subplot(row, column, position);
-            show(component);
+            show(component, obj.id);
         end
     end
 end
