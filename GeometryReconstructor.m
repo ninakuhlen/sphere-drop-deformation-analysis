@@ -7,26 +7,26 @@ classdef GeometryReconstructor
     properties (Access = public)
     end % public properties
     methods
-        function obj = GeometryReconstructor(varargin)
+        function obj = GeometryReconstructor(video, translationVelocity, sphereRadius, objectWidth)
             % parse keyword value pairs
-            parser = inputParser;
-            
-            addRequired(parser, "video", @isvalid);
-            addRequired(parser, "translationVelocity", @isfloat);
-            addRequired(parser, "sphereRadius", @isfloat);
-            addRequired(parser, "objectWidth", @isfloat);
-
-            parse(parser, varargin{:});
+            % parser = inputParser;
+            % 
+            % addRequired(parser, "video", @isvalid);
+            % addRequired(parser, "translationVelocity", @isfloat);
+            % addRequired(parser, "sphereRadius", @isfloat);
+            % addRequired(parser, "objectWidth", @isfloat);
+            % 
+            % parse(parser, varargin{:});
 
             obj.voxelDimensions = GeometryReconstructor.calculateVoxelDimensions(...
-                parser.Results.objectWidth, ...
-                parser.Results.video.Width, ...
-                parser.Results.video.FrameRate, ...
-                parser.Results.translationVelocity ...
+                objectWidth, ...
+                video.Width, ...
+                video.FrameRate, ...
+                translationVelocity ...
                 );
 
-            obj.voxelDimensions = [parser.Results.video.Height parser.Results.video.Width parser.Results.video.NumFrames]
-            obj.sphereRadius = parser.Results.sphereRadius;
+            obj.gridDimensions = [video.Height video.Width video.NumFrames]
+            obj.sphereRadius = sphereRadius;
         end % GeometryReconstructor
 
         function points = createVoxelGrid(obj)
