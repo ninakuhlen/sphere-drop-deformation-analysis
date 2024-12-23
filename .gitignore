@@ -1,1 +1,15 @@
+# ignore video data
+*.avi
+
+# ignore matlab autosaves
 *.asv
+
+# ignore the documents folder
+data/documents
+
+# ignore files regarding cad
+*.prt
+*.stp
+*.stl
+*.3mf
+*.gcode
