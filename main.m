@@ -4,7 +4,7 @@ addpath('Presentation\')
 
 % Variablen
 brightnessThreshold = 10;
-videoPath = "../testVideo1.avi";
+videoPath = "data\recordings\testing\30_deg_view_A.avi";
 figureId = 1;
 % [file, location] = uigetfile('*.avi');
 % if isequal(file, 0)
@@ -12,6 +12,7 @@ figureId = 1;
 % else
 %     videoPath = fullfile(location, file);
 % end
+
 % Instanz von FrameConverter erstellen
 frameConverter = FrameConverter(brightnessThreshold);
 
