@@ -1,6 +1,6 @@
 % Hauptskript
 
-addpath('Presentation\')
+addpath('src\visualization\')
 
 % Variablen
 brightnessThreshold = 10;
