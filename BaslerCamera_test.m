@@ -1,5 +1,5 @@
 clear all;
-
+addpath('src\visualization\')
 maxNumCompThreads('automatic'); % Nutze maximale verfügbare Threads
 
 % camera setting are derived from Image Acquisition Explorer:
