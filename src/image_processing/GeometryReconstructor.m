@@ -2,6 +2,7 @@ classdef GeometryReconstructor < handle
     properties (GetAccess = public, SetAccess = private)
         gridDimensions
         voxelDimensions
+        stretch
         sphereRadius
     end % private properties
     properties (Access = public)
@@ -53,7 +54,7 @@ classdef GeometryReconstructor < handle
 
         function disp(obj)
             className = class(obj);
-            fprintf('\nClass Name: %s\n', className);
+            fprintf('\n%s\n', className);
             fprintf('Properties:\n');
             objectProperties = properties(obj);
             for i = 1:length(objectProperties)
@@ -72,8 +73,7 @@ classdef GeometryReconstructor < handle
 
             disp(size(points))
 
-        end % scaleFrame
-
+        end % createVoxelGrid
 
     end % methods
     methods (Static)
@@ -83,6 +83,11 @@ classdef GeometryReconstructor < handle
             voxelZ = translationVelocity / frameRate;
             voxelDimensions = [voxelXY voxelXY voxelZ];
         end % calculateVoxelDimensions
+
+        function [nPixels, error] = calculateStretchFactor(voxelDimensions)
+            nPixels = floorDiv(voxelDimensions(3), voxelDimensions(1));
+            error = rem(voxelDimensions(3), voxelDimensions(1));
+        end %
 
 
         function domeHeight = calculateDomeHeight(sphereRadius, baseRadius)

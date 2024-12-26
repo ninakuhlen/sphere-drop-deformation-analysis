@@ -21,8 +21,6 @@ try
 
         imshow(frame);
     end
-
-
 catch ME
     disp("An Error occured during recording:");
     disp(ME.message);
