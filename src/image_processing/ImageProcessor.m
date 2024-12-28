@@ -1,6 +1,6 @@
 classdef ImageProcessor < handle
     properties (Access=private)
-        logConversions logical = true;
+        logConversions logical = false;
         logFilters logical = false;
     end % private properties
     methods
@@ -21,9 +21,10 @@ classdef ImageProcessor < handle
             end
         end % asImageStruct
 
-        function imageStruct = asGrayscale(obj, imageStruct)
+        function grayscaleStruct = asGrayscale(obj, imageStruct)
 
-            image = imageStruct.image;
+            grayscaleStruct = imageStruct;
+            image = grayscaleStruct.image;
 
             hasColor = false;
             if ndims(image) == 3
@@ -36,11 +37,9 @@ classdef ImageProcessor < handle
 
             image(isnan(image)) = originalMin;
 
-            %if originalMin < 0 || originalMax > 2551
-                imageStruct.image = uint8(255 * mat2gray(image));
-            %end
+            grayscaleStruct.image = uint8(255 * mat2gray(image));
 
-            imageStruct.format = "grayscale";
+            grayscaleStruct.format = "grayscale";
 
             if obj.logConversions
                 % display conversion information
@@ -52,6 +51,32 @@ classdef ImageProcessor < handle
                 fprintf('\tGrayscale Image Range:\t[0 255]\n');
             end
         end % asGrayscale
+
+        function colorStruct = asColor(obj, redStruct, greenStruct, blueStruct)
+
+            colorStruct = redStruct;
+
+            if nargin == 2
+                colorStruct.image = cat(3, redStruct.image, redStruct.image, redStruct.image);
+            elseif nargin == 3
+                emptyChannel = zeros(size(redStruct.image));
+                colorStruct.image = cat(3, redStruct.image, greenStruct.image, emptyChannel);
+            elseif nargin == 4
+                colorStruct.image = cat(3, redStruct.image, greenStruct.image, blueStruct.image);
+            end
+            
+            colorStruct.image = uint8(colorStruct.image * 255);
+            colorStruct.format = "rgb";
+
+            if obj.logConversions
+                % display conversion information
+                functionInfo = dbstack;
+                fprintf('\n%s:\n', functionInfo(1).name);
+                for i = 2:nargin;
+                    fprintf('\tInput Image Channel %s:\t%s\n', num2str(i-1), inputname(i));
+                end
+            end
+        end % asColor
 
         %% Filter Operations
 
