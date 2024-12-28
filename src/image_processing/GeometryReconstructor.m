@@ -22,17 +22,17 @@ classdef GeometryReconstructor < handle
             coveredDistance = parser.Results.coveredDistance;
 
             if ~isnan(coveredDistance)
-                translationVelocity = coveredDistance / video.Duration;
+                translationVelocity = coveredDistance / video.duration;
             end
 
             obj.voxelDimensions = GeometryReconstructor.calculateVoxelDimensions(...
                 objectWidth, ...
-                video.Width, ...
-                video.FrameRate, ...
+                video.resolution(2), ...
+                video.frameRate, ...
                 translationVelocity ...
                 );
 
-            obj.gridDimensions = [video.Height video.Width video.NumFrames];
+            obj.gridDimensions = [video.resolution(1) video.resolution(2) video.nFrames];
             obj.sphereRadius = sphereDiameter / 2;
         end % GeometryReconstructor
 
@@ -47,7 +47,7 @@ classdef GeometryReconstructor < handle
                 if isprop(obj, propertyName)
                     value = obj.(propertyName);
                 else
-                    error(['Property "', propertyName, '" does not exist in the class GeometryReconstructor.']);
+                    error(['Property "', propertyName, '" does not exist in the class ', class(obj),'.']);
                 end
             end
         end % get
