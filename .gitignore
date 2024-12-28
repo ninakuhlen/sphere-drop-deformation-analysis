@@ -13,3 +13,6 @@ data/documents
 *.stl
 *.3mf
 *.gcode
+
+# ignore code2prompt
+code.txt
