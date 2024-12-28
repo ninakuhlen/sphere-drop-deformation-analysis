@@ -1,8 +1,8 @@
 addpath('src\image_processing\');
 addpath('src\visualization\');
 
-videoFile = VideoFile("30_deg_view_B.avi");
-videoFile.setROI(200, "width", "symmetrical"); % 200
+videoFile = VideoFile("30_deg_view_A.avi");
+videoFile.setROI(0, "width", "symmetrical"); % 200
 videoFile.setROI(-100, "height", "from center");
 disp(videoFile);
 
@@ -85,7 +85,7 @@ projectionWidthB = pre.projectFrames(frameStack, modeB, axis);
 % t1 = pre.asImageStruct(t1);
 % t2 = pre.asImageStruct(t2);
 % multiPlot(t1, t2);
-% 
+%
 % projectionHeightA.image = meanFilter(projectionHeightA.image, -1);
 
 multiPlot(projectionDepthA, projectionDepthB, projectionHeightA, projectionHeightB, projectionWidthA, projectionWidthB);
@@ -100,16 +100,13 @@ min(roiImage.image, [], "all")
 
 binarizedImage = imbinarize(roiImage.image);
 
-kernelSize = 9;
-iterations = 5;
-filterKernel = strel("square", kernelSize);
-for i = 0:iterations
-    name = "Opening Iteration: " + num2str(i);
-    figure("Name", name);
-    imshow(binarizedImage);
-    binarizedImage = imerode(binarizedImage, filterKernel);
-end
+colorImage = pre.asColor(pre.asImageStruct(binarizedImage));
+colorImage
 
+multistepOpening(binarizedImage, 31);
+
+
+% fitCircleToBinaryImage
 pause;
 
 close all;
@@ -235,3 +232,105 @@ hold off;
 end
 
 
+
+function multistepOpening(binarizedImage, initialKernelSize)
+
+% Überprüfen, ob das Eingabebild binarisiert ist.
+if ~islogical(binarizedImage)
+    error('Das Eingabebild muss binarisiert (logisch) sein.');
+end
+
+% Originalbild als Hintergrund
+originalImage = repmat(binarizedImage, [1, 1, 3]);
+
+% Kernel-Größe und Iteration initialisieren
+kernelSize = 3;
+iteration = 1;
+
+% initial dilation
+filterKernel = strel("square", kernelSize);
+morphedImage = imdilate(binarizedImage, filterKernel);
+
+figure("Name", "Multistep Opening");
+
+% Schleife, bis die Kernel-Größe kleiner als 3 ist
+while kernelSize <= initialKernelSize
+    % Morphologische Operationen: Erosion
+    filterKernel = strel("square", kernelSize);
+    morphedImage = imclose(morphedImage, filterKernel);
+
+    % Ergebnis als farbliche Hervorhebung im Bild
+    overlayImage = uint8(originalImage); % Verwende das Originalbild als Basis
+    overlayImage(:,:,1) = uint8(morphedImage* 255); % Rot für Erosion
+
+    % Alpha-Blending mit dem Originalbild
+    finalImage = uint8((double(originalImage) * 255 + double(overlayImage)) / 2); % Alpha-Blending
+
+    % Ausgabe des Bildes
+    imshow(finalImage);
+    title("Erosion - Iteration " + num2str(iteration) + " mit Kernel-Größe " + num2str(kernelSize));
+
+    % Iteration und Kernel-Größe anpassen
+    iteration = iteration + 1;
+    kernelSize = kernelSize + 2;
+    pause(1);
+end
+
+% Zurücksetzen der Kernel-Größe für Dilatation
+kernelSize = 3;
+iteration = 1;
+
+while kernelSize <= initialKernelSize
+    % Morphologische Operationen: Dilatation
+    filterKernel = strel("square", kernelSize);
+    morphedImage = imopen(morphedImage, filterKernel);
+
+    % Ergebnis als farbliche Hervorhebung im Bild
+    overlayImage = uint8(originalImage); % Verwende das Originalbild als Basis
+    overlayImage(:,:,2) = uint8(morphedImage* 255) ; % Grün für Dilatation
+
+    % Alpha-Blending mit dem Originalbild
+    finalImage = uint8((double(originalImage)* 255 + double(overlayImage)) / 2); % Alpha-Blending
+
+    % Ausgabe des Bildes
+    imshow(finalImage);
+    title("Dilatation - Iteration " + num2str(iteration) + " mit Kernel-Größe " + num2str(kernelSize));
+
+    % Iteration und Kernel-Größe anpassen
+    iteration = iteration + 1;
+    kernelSize = kernelSize + 2;
+    pause(1);
+end
+end
+
+function radius = fitCircleToBinaryImage(binaryImage)
+    % Überprüfe ob das Eingabeformat binär ist
+    if ~islogical(binaryImage)
+        error('Das Eingabebild muss ein binäres (logisches) Bild sein.');
+    end
+
+    % Hough-Transformation durchführen, um Kreise zu erkennen
+    [centers, radii] = imfindcircles(binaryImage, [10 100], 'Sensitivity', 0.9);
+
+    % Überprüfen, ob Kreise erkannt wurden
+    if isempty(centers)
+        error('Keine Kreise im Bild erkannt.');
+    end
+    
+    % Wähle den Kreis mit dem größten Radius
+    [radius, idx] = max(radii);
+    center = centers(idx, :);
+
+    % Originalbild in RGB umwandeln zum Zeichnen
+    rgbImage = cat(3, binaryImage, binaryImage, binaryImage);
+
+    % In rot den erkannten Kreis zeichnen
+    rgbImage = insertShape(rgbImage, 'circle', [center, radius], 'Color', 'red', 'LineWidth', 3);
+    % In grün den Mittelpunkt markieren
+    rgbImage = insertMarker(rgbImage, center, 'o', 'Color', 'green', 'Size', 10);
+
+    % Ergebnis anzeigen
+    figure;
+    imshow(rgbImage);
+    title(['Angepasster Kreis mit Radius: ', num2str(radius)]);
+end
