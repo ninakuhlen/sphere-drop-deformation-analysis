@@ -1,118 +1,119 @@
-addpath('src\image_processing\')
+addpath('src\image_processing\');
+addpath('src\visualization\');
 
-% MATLAB Code zum Auslesen einer AVI-Video Datei
-
-% Video Datei einlesen
-parentDirectory = "C:\Users\Studium\Documents\GitHub\sphere-drop-deformation-analysis\data\recordings\testing\";
-videoFile = "30_deg_view_B.avi";
-video = VideoReader(parentDirectory+videoFile);
-
-% Informationen über das Video anzeigen
-disp('Video Informationen:');
-disp(['Dateiname: ', video.Name]);
-disp(['Auflösung: ', num2str(video.Width), ' x ', num2str(video.Height)]);
-disp(['Anzahl Frames: ', num2str(video.NumFrames)]);
-disp(['Framerate: ', num2str(video.FrameRate), ' fps']);
-disp(['Pixel Format: ', num2str(video.BitsPerPixel), ' px']);
-
-reconstructor = GeometryReconstructor(video, 50, 62, {"coveredDistance", 320, "translationVelocity", 3.2});
-
-[nPixels, error] = reconstructor.calculateStretchFactor(reconstructor.voxelDimensions);
-disp(reconstructor);
+videoFile = VideoFile("30_deg_view_B.avi");
+videoFile.setROI(200, "width", "symmetrical"); % 200
+videoFile.setROI(-100, "height", "from center");
+disp(videoFile);
 
 pre = ImageProcessor();
 disp(pre);
+
+reconstructor = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 320, "translationVelocity", 3.2});
+[nPixels, error] = reconstructor.calculateStretchFactor(reconstructor.voxelDimensions);
+disp(reconstructor);
 
 figure;
 % Frames einzeln auslesen und anzeigen
 index = 0;
 
-pixelDistanceX = 200;
-pixelDistanceY = 100;
-
-roiLimitsX = int32([pixelDistanceX+1, video.Width - pixelDistanceX]);
-roiLimitsY = int32([video.Height/2-pixelDistanceY+1, video.Height/2]);
+frameStack = zeros(videoFile.resolution(1), videoFile.resolution(2), videoFile.nFrames);
 
 
-frameStack = zeros(roiLimitsY(2)-roiLimitsY(1)+1, roiLimitsX(2)-roiLimitsX(1)+1, video.NumFrames);
+while true
+    try
+        frame = videoFile.getFrame();
+    catch ME
+        break;
+    end
 
+    frameStruct = pre.asImageStruct(frame);
+    frameStruct = pre.asGrayscale(frameStruct);
+    frameStruct = pre.meanFilter(frameStruct, 0, "<=");
 
-while hasFrame(video)
+    % stretch filtered values to range 0 to 255 again
+    frameStruct = pre.asGrayscale(frameStruct);
 
-    % Einzelnen Frame lesen
-    frame = readFrame(video);
-    frame = frame(roiLimitsY(1):roiLimitsY(2),roiLimitsX(1):roiLimitsX(2),:);
-    frame = rgb2gray(frame);
+    % set zero values to nan
+    frameStruct = pre.threshold(frameStruct, 0, "==");
 
-    frame = meanFilter(frame, 1);
+    % [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(frame, 256);
+    %frame(frame > 252) = NaN;
 
 
     % mask = compareFrames(frame, previousFrame, 50);
-    %
-    % previousFrame = frame;
-
     % filteredFrame = double(frame) .* double(mask);
 
     % frame = imadjust(frame, [], [], 0.45);
     % frame = imadjust(frame, [], [], 2);
 
-    % filteredFrame = mat2gray(filteredFrame);
 
-    frameStack(:,:,end-index) = frame;
+    frameStack(:,:,end-index) = frameStruct.image;
     index = index + 1;
 
-    % Frame anzeigen
-    frame = mat2gray(frame);
-    imshow(frame);
-    pause(1 / video.FrameRate); % Zeit für die Anzeige eines Frames (entspricht der Framerate des Videos)
+    % show filtered frame
+    imshow(frameStruct.image);
+    pause(1 / videoFile.frameRate);
 end
 
-modeA = "median";
-modeB = "median ad";
+modeA = "sum";
+modeB = "median";
 axis = "depth";
 projectionDepthA = pre.projectFrames(frameStack, modeA, axis);
 projectionDepthB = pre.projectFrames(frameStack, modeB, axis);
 
-projectionDepthA = pre.imageToGrayscale(projectionDepthA);
-projectionDepthB = pre.imageToGrayscale(projectionDepthB);
+projectionDepthA = pre.asGrayscale(projectionDepthA);
+projectionDepthB = pre.asGrayscale(projectionDepthB);
 
 axis = "height";
 projectionHeightA = pre.projectFrames(frameStack, modeA, axis);
 projectionHeightB = pre.projectFrames(frameStack, modeB, axis);
 
-projectionHeightA = pre.imageToGrayscale(projectionHeightA);
-projectionHeightB = pre.imageToGrayscale(projectionHeightB);
+projectionHeightA = pre.asGrayscale(projectionHeightA);
+projectionHeightB = pre.asGrayscale(projectionHeightB);
 
-multiPlot(projectionDepthA, projectionDepthB, projectionHeightA, projectionHeightB);
-
-shape = size(projectionHeightA.image);
-shape(1) = shape(1) * nPixels;
-stretchedProjection = imresize(projectionHeightA.image,[shape(1) shape(2)], "nearest");
-
-%stretchedProjection = imresize(stretchedProjection, 0.5, "nearest");
-
-figure("Name","Stretched Projection");
-imshow(stretchedProjection)
-% axis = "width";
-% projectionMax = pre.projectFrames(frameStack, modeA, axis);
-% projectionMin = pre.projectFrames(frameStack, modeB, axis);
-%
-% projectionMax = pre.imageToGrayscale(projectionMax);
-% projectionMin = pre.imageToGrayscale(projectionMin);
-%
-% multiPlot(projectionMax, projectionMin);
+axis = "width";
+projectionWidthA = pre.projectFrames(frameStack, modeA, axis);
+projectionWidthB = pre.projectFrames(frameStack, modeB, axis);
 
 
-% projectionMin =  ~imbinarize(projectionMin) %,'adaptive','ForegroundPolarity','dark','Sensitivity',0.4);
-% frameProjection = frameProjection .* ~projectionMin;
+% q = quantile(projectionHeightB.image, [0.05 0.25 0.5 0.75 0.95], "all")
+% [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(projectionHeightB.image, 256);
+% t1 = imbinarize(projectionHeightB.image);
 
-% kernelSize = 3;
-% iterations = 1;
-%
-% filterKernel = strel("square", kernelSize);
-% filteredProjection = imopen(projectionDepthA, filterKernel);
+% t2 = imbinarize(projectionHeightB.image, q(5)/255);
+% t1 = pre.asImageStruct(t1);
+% t2 = pre.asImageStruct(t2);
+% multiPlot(t1, t2);
+% 
+% projectionHeightA.image = meanFilter(projectionHeightA.image, -1);
 
+multiPlot(projectionDepthA, projectionDepthB, projectionHeightA, projectionHeightB, projectionWidthA, projectionWidthB);
 
+stretchedProjection = pre.stretchImage(projectionHeightA, "height", nPixels);
+
+[roiImage, ~] = pre.selectROI(stretchedProjection);
+roiImage = pre.asGrayscale(roiImage);
+max(roiImage.image, [], "all")
+min(roiImage.image, [], "all")
+[largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(roiImage.image, 256);
+
+binarizedImage = imbinarize(roiImage.image);
+
+kernelSize = 9;
+iterations = 5;
+filterKernel = strel("square", kernelSize);
+for i = 0:iterations
+    name = "Opening Iteration: " + num2str(i);
+    figure("Name", name);
+    imshow(binarizedImage);
+    binarizedImage = imerode(binarizedImage, filterKernel);
+end
+
+pause;
+
+close all;
+clc;
 
 
 function binaryMask = compareFrames(frame1, frame2, threshold)
@@ -161,15 +162,76 @@ end
 
 
 
-function outputImage = meanFilter(inputImage, n)
 
-inputImage = double(inputImage);
 
-meanValue = mean(inputImage, "all");
-stdValue = std(inputImage, 0, "all");
 
-threshold = meanValue - n * stdValue;
+function [largestSlope, binIndex] = findLargestHistogramSlopeLog(inputImage, nBins)
+% Berechne das Histogramm des Bildes
+[counts, binEdges] = imhist(inputImage, nBins);
 
-outputImage = inputImage;
-outputImage(inputImage < threshold) = 0;
+% Frequenzen logarithmisch skalieren, um relative Unterschiede zu betonen
+logCounts = counts; %log10(counts + 1); % +1, um log(0) zu vermeiden
+
+% Berechne die Mittelpunkte der Bins
+binCenters = binEdges(1:end-1); % Eine weniger als logCounts
+
+% Berechne die Differenzen zwischen den logarithmischen Werten
+slopes = diff(logCounts);
+
+% Finde den Index des größten Gefälles
+[largestSlope, binIndex] = min(slopes);
+
+% Visualisierung (optional)
+bar(binCenters, logCounts(1:end-1), 'FaceColor', [0.5, 0.5, 0.8]); % Gleiche Länge sicherstellen
+hold on;
+plot(binCenters(binIndex:binIndex+1), logCounts(binIndex:binIndex+1), 'r', 'LineWidth', 2);
+title('Logarithmisch skaliertes Histogramm mit größtem Gefälle');
+xlabel('Grauwert');
+ylabel('Logarithmische Häufigkeit (log_{10})');
+legend('Histogramm', 'Größtes Gefälle');
+hold off;
 end
+
+
+function [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(inputImage, nBins)
+% Berechne das Histogramm des Bildes
+[counts, binCenters] = imhist(inputImage, nBins);
+
+[t, em] = otsuthresh(counts);
+t * 255
+
+% Frequenzen logarithmisch skalieren
+logCounts = log10(counts + 1); % +1, um log(0) zu vermeiden
+
+% Sicherstellen, dass die Länge von binCenters und logCounts übereinstimmt
+if length(binCenters) ~= length(logCounts)
+    error('Die Länge von binCenters und logCounts stimmt nicht überein.');
+end
+
+% Passe eine Einhüllende an die logarithmierten Werte an (Savitzky-Golay-Filter)
+smoothedCounts = sgolayfilt(logCounts, 3, 11); % Grad 3, Fenstergröße 11
+
+[globalMinValue, globalMinIndex] = min(smoothedCounts)
+
+% Berechne die Differenzen der geglätteten Werte
+slopes = diff(smoothedCounts);
+
+% Finde den Index des größten Gefälles
+[largestSlope, binIndex] = min(slopes);
+
+% Visualisierung
+% figure;
+bar(binCenters, logCounts, 'FaceColor', [0.5, 0.5, 0.8]); % Original-Histogramm
+hold on;
+plot(binCenters, smoothedCounts, 'r', 'LineWidth', 2); % Einhüllende
+if binIndex < length(binCenters)
+    plot(binCenters(binIndex:binIndex+1), smoothedCounts(binIndex:binIndex+1), 'g', 'LineWidth', 2); % Größtes Gefälle
+end
+title('Logarithmisch skaliertes Histogramm mit Einhüllender');
+xlabel('Grauwert');
+ylabel('Logarithmische Häufigkeit (log_{10})');
+legend('Histogramm', 'Einhüllende', 'Größtes Gefälle');
+hold off;
+end
+
+
