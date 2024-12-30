@@ -101,7 +101,6 @@ min(roiImage.image, [], "all")
 binarizedImage = imbinarize(roiImage.image);
 
 colorImage = pre.asColor(pre.asImageStruct(binarizedImage));
-colorImage
 
 multistepOpening(binarizedImage, 31);
 

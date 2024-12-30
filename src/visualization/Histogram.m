@@ -1,12 +1,14 @@
 classdef Histogram < FigureComponent
     properties(Access=private)
-        image
+        image % ersetzen mit FrameDto
+        %videoPlayerHandle
     end
 
     methods
         function obj = Histogram(image, row, column, position)
             obj@FigureComponent(row, column, position); % parent call
             obj.image = image;
+            %obj.videoPlayerHandle = videoPlayerHandle; % weiter refactorn
         end
         
         function show(obj, ~)

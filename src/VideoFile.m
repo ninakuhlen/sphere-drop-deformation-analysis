@@ -8,7 +8,7 @@ classdef VideoFile
         pixelFormat % [px]
     end % private properties
     properties (Access = public)
-        parentPath = "C:\Users\Studium\Documents\GitHub\sphere-drop-deformation-analysis\data\recordings\testing\";
+        parentPath = "data\recordings\testing\";
     end % public properties
     methods
 
@@ -16,7 +16,7 @@ classdef VideoFile
             disp(obj.parentPath+fileName)
             obj.video = VideoReader(obj.parentPath+fileName);
             obj.fileName = obj.video.Name;
-            obj. resolution = [obj.video.Width, obj.video.Height];
+            obj.resolution = [obj.video.Width, obj.video.Height];
             obj.nFrames = obj.video.NumFrames;
             obj.pixelFormat = obj.video.BitsPerPixel;
         end % VideoFile

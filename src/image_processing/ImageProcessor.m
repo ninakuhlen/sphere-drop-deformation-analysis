@@ -9,14 +9,14 @@ classdef ImageProcessor < handle
 
         %% Conversion Operations
 
-        function imageStruct = asImageStruct(obj, image)
+        function imageStruct = asImageStruct(~, image)
             imageStruct = struct("image", image, "title", "frame", "format", [], "xLabel", "image width", "yLabel", "image height");
 
             if ndims(image) == 3
                 imageStruct.format = "multi channel";
-            elseif ndims(image) == 2 && isinteger(image)
+            elseif ismatrix(image) && isinteger(image)
                 imageStruct.format = "grayscale";
-            elseif ndims(image) == 2 && isfloat(image)
+            elseif ismatrix(image) && isfloat(image)
                 imageStruct.format = "normalized grayscale";
             end
         end % asImageStruct
@@ -72,7 +72,7 @@ classdef ImageProcessor < handle
                 % display conversion information
                 functionInfo = dbstack;
                 fprintf('\n%s:\n', functionInfo(1).name);
-                for i = 2:nargin;
+                for i = 2:nargin
                     fprintf('\tInput Image Channel %s:\t%s\n', num2str(i-1), inputname(i));
                 end
             end
@@ -102,7 +102,8 @@ classdef ImageProcessor < handle
             end
 
         end % threshold
-
+        
+%%% hier weiter refactorn
         function filteredStruct = meanFilter(obj, imageStruct, nSigma, mode)
 
             filteredStruct = imageStruct;

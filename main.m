@@ -1,10 +1,14 @@
 % Hauptskript
 
-addpath('src\visualization\')
+addpath("src\")
+addpath("src\image_processing\conversion_operation\")
+addpath("src\image_processing\filter_operation\")
+%addpath('src\visualization\')
 
 % Variablen
 brightnessThreshold = 10;
-videoPath = "data\recordings\testing\30_deg_view_A.avi";
+videoPath = "data\recordings\testing\";
+videoFileName = "30_deg_view_A.avi";
 figureId = 1;
 % [file, location] = uigetfile('*.avi');
 % if isequal(file, 0)
@@ -14,12 +18,17 @@ figureId = 1;
 % end
 
 % Instanz von FrameConverter erstellen
-frameConverter = FrameConverter(brightnessThreshold);
+image2StructConverter = Image2StructConverter();
+imageStruct2GrayScaleConverter = ImageStruct2GrayScaleConverter();
+intensityThresholdMasker = IntensityThresholdMasker();
+frameConverter = FrameConverter(brightnessThreshold, {image2StructConverter, imageStruct2GrayScaleConverter}, {intensityThresholdMasker});
+convert(frameConverter);
+filter(frameConverter, );
 
 % Video Player erstellen
-videoReader = VideoReader(videoPath);
-
-videoPlayerHandle = VideoPlayerHandle(figureId, videoReader);
+videoLoader = VideoLoader(videoPath);
+video = videoLoader.load(videoFileName);
+videoPlayerHandle = VideoPlayerHandle(figureId, video);
 videoPlayer = VideoPlayer(videoPlayerHandle, 1, 2, 2);
 videoPlayerControls = VideoPlayerControls(videoPlayerHandle, 3, 1, 1); % z. B. im gleichen Grid wie VideoPlayer & Histogram
 
@@ -52,7 +61,7 @@ show(figureObj);
 % imshow(summedMatrix);
 % title('summed brightness Matrix');
 
-function videoFrameUpdatedCallback(~, event, figure, frameConverter)
+function videoFrameUpdatedCallback(~, event, figure, frameConverter) % Todo: refactor in Histogram verschieben
     grayFrame = frameConverter.convertToGrayFrame(getFrame(event));
     histogram = Histogram(grayFrame, 2, 1, 2);
     figure.addComponent(histogram);

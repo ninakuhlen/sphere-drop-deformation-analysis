@@ -1,26 +1,31 @@
-classdef FrameConverter
+classdef FrameConverter % Strategy Pattern
     properties
         brightnessThreshold
+        conversionOperations = {}
+        filterOperations = {}
     end
 
     methods
         % Constructor
-        function obj = FrameConverter(brightnessThreshold)
+        function obj = FrameConverter(brightnessThreshold, conversionOperations, filterOperations)
             obj.brightnessThreshold = brightnessThreshold;
+            obj.conversionOperations = conversionOperations;
+            obj.filterOperations = filterOperations;
         end
 
         % Konvertierungs-Methoden
-        function grayFrame = convertToGrayFrame(~, frame)
-            if size(frame, 3) == 1
-                grayFrame = frame;
-                return;
+        function frame = convertFrame(obj, frame)
+            for i = 1:length(obj.conversionOperations)
+                conversionOperation = obj.conversionOperations{i};
+                frame = execute(conversionOperation, frame);
             end
-            if size(frame, 3) == 3
-                grayFrame = rgb2gray(frame);
-                return;
-            end
+        end
 
-            error('invalid amount of bands');
+        function frame = filterFrame(obj, frame)
+            for i = 1:length(obj.filterOperations)
+                filterOperation = obj.filterOperations{i};
+                frame = execute(filterOperation, frame);
+            end
         end
     end
 end
