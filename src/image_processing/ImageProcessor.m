@@ -7,6 +7,38 @@ classdef ImageProcessor < handle
         function obj = ImageProcessor()
         end % ImageProcessor
 
+        function disp(obj)
+            className = class(obj);
+            fprintf('\n%s\n', className);
+
+            % print all public properties
+            fprintf('Properties:\n');
+            objectProperties = properties(obj);
+            for i = 1:length(objectProperties)
+                fprintf("\t%s:\t%s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})));
+            end
+            
+            % get all methods
+            allMethods = methods(obj);
+
+            % get methods from superclass
+            metaClass = meta.class.fromName(className);
+            superClasses = metaClass.SuperclassList;
+            inheritedMethods = {};
+            for k = 1:length(superClasses)
+                inheritedMethods = [inheritedMethods; methods(superClasses(k).Name)];
+            end
+
+
+            % print all public custom methods
+            fprintf('Custom Methods:\n');
+            customMethods = setdiff(allMethods, inheritedMethods);
+            for i = 2:length(customMethods)
+                fprintf('\t%s\n', customMethods{i});
+            end
+
+        end % disp
+
         %% Conversion Operations
 
         function imageStruct = asImageStruct(obj, image)
@@ -31,8 +63,8 @@ classdef ImageProcessor < handle
                 image = rgb2gray(image);
                 hasColor = true;
             end
-            originalMin = double(min(image(:)));
-            originalMax = double(max(image(:)));
+            originalMin = double(min(image, [], "all"));
+            originalMax = double(max(image, [], "all"));
             originalRange = [originalMin, originalMax];
 
             image(isnan(image)) = originalMin;
@@ -64,7 +96,7 @@ classdef ImageProcessor < handle
             elseif nargin == 4
                 colorStruct.image = cat(3, redStruct.image, greenStruct.image, blueStruct.image);
             end
-            
+
             colorStruct.image = uint8(colorStruct.image * 255);
             colorStruct.format = "rgb";
 
@@ -141,11 +173,8 @@ classdef ImageProcessor < handle
                     image = median(frameStack, axesMap(axis), "omitnan");
                 case "median dev"
                     image = median(abs(frameStack - median(frameStack, axesMap(axis), "omitnan")), axesMap(axis), "omitnan");
-                    % image = mad(frameStack, 1, axesMap(axis));
                 case "iqr"
                     image = iqr(frameStack, axesMap(axis));
-                case "mean ad"
-                    image = mad(frameStack, 0, axesMap(axis));
             end
 
             switch axis
@@ -250,6 +279,78 @@ classdef ImageProcessor < handle
             close;
 
         end % selectROI
+
+        function morphedImage = multiStepMorphing(binaryImage, kernelShape, kernelSize, mode, operation, figure, overlayImage)
+
+            if nargin == 5 || nargin == 7
+
+                morphedImage = binaryImage;
+
+                switch mode
+                    case "grow"
+                        currentKernelSize = 3;
+                        compare = @(x) x <= kernelSize;
+                    case "shrink"
+                        currentKernelSize = kernelSize;
+                        compare = @(x) x >= 3;
+                end
+
+                iteration = 1;
+
+                while compare(currentKernelSize)
+
+                    % create kernel
+                    filterKernel = strel(kernelShape, currentKernelSize);
+
+                    switch operation
+                        case "erode"
+                            morphedImage = imerode(morphedImage, filterKernel);
+                            channel = 1; % red for erosion
+                        case "dilate"
+                            morphedImage = imdilate(morphedImage, filterKernel);
+                            channel = 2; % green for dilation
+                        case "open" % erosion + dilation
+                            morphedImage = imopen(morphedImage, filterKernel);
+                            channel = 1; % red for opening
+                        case "close" % dilation + erosion
+                            morphedImage = imclose(morphedImage, filterKernel);
+                            channel = 2; % green for closing
+                    end
+
+                    if nargin == 7
+
+                        if ~isvalid(figure)
+                            break;
+                        end
+
+                        % generate overlay image in red
+                        originalOverlay = repmat(overlayImage, [1, 1, 3]);
+                        overlay = uint8(originalOverlay);
+                        overlay(:,:,channel) = uint8(morphedImage* 255);
+
+                        % alpha blending with the original image
+                        finalImage = uint8((double(originalOverlay) * 255 + double(overlay)) / 2);
+
+                        % Ausgabe des Bildes
+                        imshow(finalImage, 'Parent', axes('Parent', figure), "Border", "tight");
+                        set(figure, "Name", "multiStepMorphing (" + operation + ") Iteration: " + num2str(iteration) + " (kernelSize " + num2str(currentKernelSize) + ")");
+                    end
+
+                    % change kernel size for next iteration
+                    switch mode
+                        case "grow"
+                            currentKernelSize = currentKernelSize + 2;
+                        case "shrink"
+                            currentKernelSize = currentKernelSize - 2;
+                    end
+
+                    % increment the iteration counter
+                    iteration = iteration + 1;
+
+                    pause(0.25);
+                end
+            end
+        end % multiStepMorphing
 
     end % static methods
 

@@ -1,23 +1,25 @@
 addpath('src\image_processing\');
 addpath('src\visualization\');
 
+showVideo = false;
+
 videoFile = VideoFile("30_deg_view_A.avi");
-videoFile.setROI(0, "width", "symmetrical"); % 200
+videoFile.setROI(200, "width", "symmetrical"); % 200
 videoFile.setROI(-100, "height", "from center");
 disp(videoFile);
 
 pre = ImageProcessor();
 disp(pre);
 
-reconstructor = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 320, "translationVelocity", 3.2});
+reconstructor = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 300, "translationVelocity", 3.2});
 [nPixels, error] = reconstructor.calculateStretchFactor(reconstructor.voxelDimensions);
 disp(reconstructor);
 
-figure;
-% Frames einzeln auslesen und anzeigen
-index = 0;
+if showVideo
+    videoWindow = figure("Name", "Video");
+end
 
-frameStack = zeros(videoFile.resolution(1), videoFile.resolution(2), videoFile.nFrames);
+frameStack = videoFile.createFrameContainer(1);
 
 
 while true
@@ -29,35 +31,33 @@ while true
 
     frameStruct = pre.asImageStruct(frame);
     frameStruct = pre.asGrayscale(frameStruct);
+
+    % gamma correction: brighten (g < 1), darken (g > 1)
+    frameStruct.image = imadjust(frameStruct.image, [], [], 0.5);
+    frameStruct.image = medfilt2(frameStruct.image, [15 15], "symmetric");
+    
+    % mean filtering
     frameStruct = pre.meanFilter(frameStruct, 0, "<=");
 
     % stretch filtered values to range 0 to 255 again
-    frameStruct = pre.asGrayscale(frameStruct);
+    % frameStruct = pre.asGrayscale(frameStruct);
 
     % set zero values to nan
-    frameStruct = pre.threshold(frameStruct, 0, "==");
+    % frameStruct = pre.threshold(frameStruct, 0, "==");
 
-    % [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(frame, 256);
-    %frame(frame > 252) = NaN;
-
-
-    % mask = compareFrames(frame, previousFrame, 50);
-    % filteredFrame = double(frame) .* double(mask);
-
-    % frame = imadjust(frame, [], [], 0.45);
-    % frame = imadjust(frame, [], [], 2);
-
-
-    frameStack(:,:,end-index) = frameStruct.image;
-    index = index + 1;
-
-    % show filtered frame
-    imshow(frameStruct.image);
-    pause(1 / videoFile.frameRate);
+    frameStack(:,:,end - videoFile.frameIndex + 1) = frameStruct.image;
+    
+    if showVideo
+        % show filtered frame
+        imshow(frameStruct.image);
+        set(videoWindow, "Name", "Frame " + num2str(videoFile.frameIndex) + "/" + num2str(videoFile.nFrames));
+        pause(1 / videoFile.frameRate);
+    end
 end
 
+
 modeA = "sum";
-modeB = "median";
+modeB = "min";
 axis = "depth";
 projectionDepthA = pre.projectFrames(frameStack, modeA, axis);
 projectionDepthB = pre.projectFrames(frameStack, modeB, axis);
@@ -91,25 +91,45 @@ projectionWidthB = pre.projectFrames(frameStack, modeB, axis);
 multiPlot(projectionDepthA, projectionDepthB, projectionHeightA, projectionHeightB, projectionWidthA, projectionWidthB);
 
 stretchedProjection = pre.stretchImage(projectionHeightA, "height", nPixels);
-
+% stretchedProjection.image = medfilt2(stretchedProjection.image, [45, 25], "symmetric");
 [roiImage, ~] = pre.selectROI(stretchedProjection);
 roiImage = pre.asGrayscale(roiImage);
-max(roiImage.image, [], "all")
-min(roiImage.image, [], "all")
+
 [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(roiImage.image, 256);
 
+roiImage.image = medfilt2(roiImage.image, [3, 3], "symmetric")
 binarizedImage = imbinarize(roiImage.image);
 
-colorImage = pre.asColor(pre.asImageStruct(binarizedImage));
-colorImage
+% colorImage = pre.asColor(pre.asImageStruct(binarizedImage));
+% colorImage
 
-multistepOpening(binarizedImage, 31);
+%% morphedImage = multistepOpening(binarizedImage, 31);
+
+% Überprüfen, ob das Eingabebild binarisiert ist.
+if ~islogical(binarizedImage)
+    error('Das Eingabebild muss binarisiert (logisch) sein.');
+end
+
+kernelShape = "disk";
+kernelSize = 15;
+morphFigure = figure;
+
+morphedImage = pre.multiStepMorphing(binarizedImage, kernelShape, kernelSize, "shrink", "erode", morphFigure, binarizedImage);
+[~] = pre.multiStepMorphing(morphedImage, kernelShape, kernelSize, "grow", "dilate", morphFigure, binarizedImage);
 
 
-% fitCircleToBinaryImage
+% initial dilation
+% filterKernel = strel(kernelShape, kernelSize);
+% morphedImage = imdilate(binarizedImage, filterKernel);
+
+
+
+
+%drawMinBoundCircle(morphedImage);
 pause;
 
 close all;
+clear all;
 clc;
 
 
@@ -232,14 +252,21 @@ hold off;
 end
 
 
+function fitBlob(binaryImage, kernelSize)
 
-function multistepOpening(binarizedImage, initialKernelSize)
+
+end
+
+
+
+function morphedImage = multistepOpening(binarizedImage, initialKernelSize)
 
 % Überprüfen, ob das Eingabebild binarisiert ist.
 if ~islogical(binarizedImage)
     error('Das Eingabebild muss binarisiert (logisch) sein.');
 end
 
+kernelShape = "disk";
 % Originalbild als Hintergrund
 originalImage = repmat(binarizedImage, [1, 1, 3]);
 
@@ -248,7 +275,7 @@ kernelSize = 3;
 iteration = 1;
 
 % initial dilation
-filterKernel = strel("square", kernelSize);
+filterKernel = strel(kernelShape, kernelSize);
 morphedImage = imdilate(binarizedImage, filterKernel);
 
 figure("Name", "Multistep Opening");
@@ -256,7 +283,7 @@ figure("Name", "Multistep Opening");
 % Schleife, bis die Kernel-Größe kleiner als 3 ist
 while kernelSize <= initialKernelSize
     % Morphologische Operationen: Erosion
-    filterKernel = strel("square", kernelSize);
+    filterKernel = strel(kernelShape, kernelSize);
     morphedImage = imclose(morphedImage, filterKernel);
 
     % Ergebnis als farbliche Hervorhebung im Bild
@@ -273,7 +300,7 @@ while kernelSize <= initialKernelSize
     % Iteration und Kernel-Größe anpassen
     iteration = iteration + 1;
     kernelSize = kernelSize + 2;
-    pause(1);
+    pause(0.25);
 end
 
 % Zurücksetzen der Kernel-Größe für Dilatation
@@ -282,7 +309,7 @@ iteration = 1;
 
 while kernelSize <= initialKernelSize
     % Morphologische Operationen: Dilatation
-    filterKernel = strel("square", kernelSize);
+    filterKernel = strel(kernelShape, kernelSize);
     morphedImage = imopen(morphedImage, filterKernel);
 
     % Ergebnis als farbliche Hervorhebung im Bild
@@ -299,7 +326,7 @@ while kernelSize <= initialKernelSize
     % Iteration und Kernel-Größe anpassen
     iteration = iteration + 1;
     kernelSize = kernelSize + 2;
-    pause(1);
+    pause(0.25);
 end
 end
 
@@ -310,7 +337,7 @@ function radius = fitCircleToBinaryImage(binaryImage)
     end
 
     % Hough-Transformation durchführen, um Kreise zu erkennen
-    [centers, radii] = imfindcircles(binaryImage, [10 100], 'Sensitivity', 0.9);
+    [centers, radii] = imfindcircles(uint8(binaryImage*255), [10 100], 'Sensitivity', 0.9);
 
     % Überprüfen, ob Kreise erkannt wurden
     if isempty(centers)
@@ -333,4 +360,115 @@ function radius = fitCircleToBinaryImage(binaryImage)
     figure;
     imshow(rgbImage);
     title(['Angepasster Kreis mit Radius: ', num2str(radius)]);
+end
+
+function drawMinBoundCircle(binaryImage)
+    % Überprüfen, ob das Bild binär ist
+    if ~islogical(binaryImage)
+        error("Das Eingabebild muss ein binäres Bild (logical) sein.");
+    end
+
+    % Finden der Pixelkoordinaten der weißen Bereiche
+    [rowCoords, colCoords] = find(binaryImage);
+
+    % Überprüfen, ob weiße Pixel vorhanden sind
+    if isempty(rowCoords)
+        error("Das Bild enthält keine weißen Pixel.");
+    end
+
+    % Berechnung des minimalen Begrenzungskreises
+    [centerX, centerY, radius] = minboundcircle(colCoords, rowCoords);
+
+    % Erstelle ein Bild mit dem Kreis
+    figure("Name", "MinBoundCircle");
+    imshow(binaryImage);
+    hold on;
+
+    % Zeichne den Kreis
+    theta = linspace(0, 2*pi, 100); % Kreis-Parameter
+    xCircle = centerX + radius * cos(theta);
+    yCircle = centerY + radius * sin(theta);
+    plot(xCircle, yCircle, 'r', 'LineWidth', 2); % Kreis einzeichnen
+
+    % Zeichne den Mittelpunkt
+    plot(centerX, centerY, 'go', 'MarkerSize', 10, 'LineWidth', 2);
+
+    % Beschriftung
+    title("Minimaler Begrenzungskreis");
+    legend("Begrenzungskreis", "Mittelpunkt");
+    hold off;
+end
+
+function [xc, yc, r] = minboundcircle(x, y)
+    % MINBOUNDCIRCLE - Berechnet den minimalen Begrenzungskreis für 2D-Punkte
+    % 
+    % [xc, yc, r] = minboundcircle(x, y) berechnet den Mittelpunkt (xc, yc) 
+    % und den Radius r des minimalen Begrenzungskreises, der alle Punkte umfasst.
+    %
+    % Eingabe:
+    % x, y - Arrays der x- und y-Koordinaten
+    %
+    % Ausgabe:
+    % xc, yc - Mittelpunkt des Kreises
+    % r - Radius des Kreises
+    
+    % Kombiniere Punkte
+    points = [x(:), y(:)];
+    k = convhull(points); % Konvexe Hülle
+    hullPoints = points(k, :); % Punkte der Hülle
+
+    % Berechnung des minimalen Kreises
+    [xc, yc, r] = welzl(hullPoints);
+end
+
+function [xc, yc, r] = welzl(points)
+    % WELZL - Implementierung des Welzl-Algorithmus
+    if isempty(points)
+        xc = 0;
+        yc = 0;
+        r = 0;
+    elseif size(points, 1) == 1
+        xc = points(1, 1);
+        yc = points(1, 2);
+        r = 0;
+    elseif size(points, 1) == 2
+        xc = mean(points(:, 1));
+        yc = mean(points(:, 2));
+        r = sqrt(sum((points(1, :) - points(2, :)).^2)) / 2;
+    else
+        % Rekursiver Algorithmus
+        shuffleIdx = randperm(size(points, 1));
+        for i = 1:numel(shuffleIdx)
+            pt = points(shuffleIdx(i), :);
+            [xc, yc, r] = welzl(points([1:i-1, i+1:end], :));
+            if norm([xc, yc] - pt) > r
+                [xc, yc, r] = minBoundCircleWithPoint(points(1:i-1, :), pt);
+            end
+        end
+    end
+end
+
+function [xc, yc, r] = minBoundCircleWithPoint(points, p)
+    % Unterstützung zur Rekonstruktion eines Kreises
+    n = size(points, 1);
+    if n == 0
+        xc = p(1);
+        yc = p(2);
+        r = 0;
+    elseif n == 1
+        xc = (p(1) + points(1, 1)) / 2;
+        yc = (p(2) + points(1, 2)) / 2;
+        r = norm([xc, yc] - p);
+    else
+        % Verwende den Umkreis des Dreiecks
+        x1 = points(1, 1); y1 = points(1, 2);
+        x2 = points(2, 1); y2 = points(2, 2);
+        x3 = p(1); y3 = p(2);
+        A = [x1 - x2, y1 - y2; x1 - x3, y1 - y3];
+        B = 0.5 * [x1^2 - x2^2 + y1^2 - y2^2; x1^2 - x3^2 + y1^2 - y3^2];
+        center = A\B;
+        xc = center(1);
+        yc = center(2);
+        r = norm([xc - x1, yc - y1]);
+    end
 end

@@ -55,11 +55,33 @@ classdef GeometryReconstructor < handle
         function disp(obj)
             className = class(obj);
             fprintf('\n%s\n', className);
+
+            % print all public properties
             fprintf('Properties:\n');
             objectProperties = properties(obj);
             for i = 1:length(objectProperties)
                 fprintf("\t%s:\t%s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})));
             end
+
+            % get all methods
+            allMethods = methods(obj);
+
+            % get methods from superclass
+            metaClass = meta.class.fromName(className);
+            superClasses = metaClass.SuperclassList;
+            inheritedMethods = {};
+            for k = 1:length(superClasses)
+                inheritedMethods = [inheritedMethods; methods(superClasses(k).Name)];
+            end
+
+
+            % print all public custom methods
+            fprintf('Custom Methods:\n');
+            customMethods = setdiff(allMethods, inheritedMethods);
+            for i = 2:length(customMethods)
+                fprintf('\t%s\n', customMethods{i});
+            end
+
         end % disp
 
         function points = createVoxelGrid(obj)

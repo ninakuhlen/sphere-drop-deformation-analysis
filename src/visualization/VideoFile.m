@@ -9,11 +9,11 @@ classdef VideoFile < handle
         nFrames % [1]
         frameRate % [fps]
         pixelFormat % [px]
-
-        roi
+        roi % [px]
     end % getable private properties
     properties (Access = public)
         parentPath = ".\data\recordings\testing\";
+        frameIndex = 0;
     end % public properties
     methods
 
@@ -27,6 +27,9 @@ classdef VideoFile < handle
             obj.pixelFormat = obj.video.BitsPerPixel;
             obj.roi = [1, obj.video.Height;
                 1, obj.video.Width];
+
+            % create cleanup tasks
+            cleanup = onCleanup(@() VideoFile.videoCleanup(obj.video));
         end % VideoFile
 
         function value = get(obj, propertyName)
@@ -71,15 +74,41 @@ classdef VideoFile < handle
             end
 
             obj.resolution(dim) = obj.roi(dim, 2) - obj.roi(dim, 1) + 1;
+            
         end % setROI
 
         function frame = getFrame(obj)
             if hasFrame(obj.video)
+                obj.frameIndex = obj.frameIndex + 1;
                 frame = readFrame(obj.video);
                 frame = frame(obj.roi(1, 1):obj.roi(1, 2), obj.roi(2, 1):obj.roi(2, 2), :);
             else
+                obj.frameIndex = 0;
                 error('No more frames available in the video.');
             end
         end % getFrame
+
+        function frameContainer = createFrameContainer(obj, nChannels)
+            switch nChannels
+                case 1
+                    frameContainer = zeros(obj.resolution(1), obj.resolution(2), obj.nFrames);
+                otherwise
+                    frameContainer = zeros(obj.resolution(1), obj.resolution(2), nChannels, obj.nFrames);
+            end
+        end % createFrameContainer
+
     end % methods
+
+    methods (Static, Access=private)
+        function videoCleanup()
+            % close all figures
+            close all;
+
+            % clear workspace
+            clear all;
+
+            % clear command window
+            clc;
+        end % videoCleanup
+    end % private methods
 end % classdef
