@@ -63,8 +63,10 @@ classdef ImageProcessor < handle
                 image = rgb2gray(image);
                 hasColor = true;
             end
+
             originalMin = double(min(image, [], "all"));
             originalMax = double(max(image, [], "all"));
+
             originalRange = [originalMin, originalMax];
 
             image(isnan(image)) = originalMin;

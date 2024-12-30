@@ -1,10 +1,12 @@
 addpath('src\image_processing\');
 addpath('src\visualization\');
 
+
 showVideo = false;
 
 videoFile = VideoFile("30_deg_view_A.avi");
 videoFile.setROI(200, "width", "symmetrical"); % 200
+
 videoFile.setROI(-100, "height", "from center");
 disp(videoFile);
 
@@ -20,7 +22,6 @@ if showVideo
 end
 
 frameStack = videoFile.createFrameContainer(1);
-
 
 while true
     try
@@ -91,6 +92,7 @@ projectionWidthB = pre.projectFrames(frameStack, modeB, axis);
 multiPlot(projectionDepthA, projectionDepthB, projectionHeightA, projectionHeightB, projectionWidthA, projectionWidthB);
 
 stretchedProjection = pre.stretchImage(projectionHeightA, "height", nPixels);
+
 % stretchedProjection.image = medfilt2(stretchedProjection.image, [45, 25], "symmetric");
 [roiImage, ~] = pre.selectROI(stretchedProjection);
 roiImage = pre.asGrayscale(roiImage);
@@ -267,6 +269,7 @@ if ~islogical(binarizedImage)
 end
 
 kernelShape = "disk";
+
 % Originalbild als Hintergrund
 originalImage = repmat(binarizedImage, [1, 1, 3]);
 
