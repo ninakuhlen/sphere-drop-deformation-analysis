@@ -3,29 +3,37 @@ classdef VideoLoader
     % erstellt eine Instanz von Video und gibt diese zurück
     properties(Access = 'private')
         path
+        frameConverter
     end
     
     methods
-        function obj = VideoLoader(path)
+        function obj = VideoLoader(path, frameConverter)
             obj.path = path;
+            obj.frameConverter = frameConverter;
         end
         
         function video = load(obj, fileName)
             videoReader = VideoReader(obj.path + fileName);
             nFrames = videoReader.NumFrames;
             frames = {}; % wird befüllt s.u.
+            resolutionX = videoReader.Width;
+            resolutionY = videoReader.Height;
+            frameStack = zeros(resolutionY, resolutionX, nFrames);
             fileName = videoReader.Name;
-            resolution = [videoReader.Width, videoReader.Height];
             frameRate = videoReader.FrameRate;
+            duration = videoReader.Duration;
             pixelFormat = videoReader.BitsPerPixel;
 
+            index = 1;
             while hasFrame(videoReader)
                 frame = readFrame(videoReader);
                 frames{end+1} = frame;
+                frameStack(:, :, index) = obj.frameConverter.convert(frame);
+                index = index + 1;
             end
 
-            video = Video(frames, fileName, resolution, nFrames, frameRate, pixelFormat);
-            obj.displayVideoInformation(video);
+            video = Video(frames, fileName, resolutionX, resolutionY, nFrames, frameStack, frameRate, duration, pixelFormat);
+            %obj.displayVideoInformation(video);
         end
 
         function displayVideoInformation(~, video)
