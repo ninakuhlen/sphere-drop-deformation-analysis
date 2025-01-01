@@ -1,6 +1,16 @@
 % Variablen
-brightnessThreshold = 10;
-videoPath = "..\data\recordings\30_deg_view_B.avi";
+videoPath = "..\data\recordings\";
+brightnessThreshold = 50;
+traversedCameraDistance = 300; % [mm]
+
+fieldOfViewWidth = 62; % [mm]
+
+% Definiere den ROI (mittlerer Bereich)
+rowStart = 500; % Startzeile
+rowEnd = 600;   % Endzeile
+colStart = 480; % Startspalte
+colEnd = 1240;  % Endspalte
+
 figureId = 1;
 % [file, location] = uigetfile('*.avi');
 % if isequal(file, 0)
@@ -10,10 +20,48 @@ figureId = 1;
 % end
 
 % Instanz von FrameConverter erstellen
-frameConverter = FrameConverter(brightnessThreshold);
+close all;
 
-% Video Player erstellen
-videoReader = VideoReader(videoPath);
+frameConverter = FrameConverter(brightnessThreshold);
+frameStretcher = FrameStretcher(traversedCameraDistance, fieldOfViewWidth);
+frameSummation = FrameSummation();
+
+videoLoader = VideoLoader(videoPath, frameConverter);
+video = videoLoader.load("30_deg_view_A.avi");
+
+roi = ROI(rowStart, rowEnd, colStart, colEnd);
+reducedFrameStack = apply(roi, video.frameStack);
+
+% videoPlayerHandle = VideoPlayerHandle(figureId, video);
+% videoPlayer = VideoPlayer(videoPlayerHandle, 1, 2, 2);
+% 
+% videoPlayerControls = VideoPlayerControls(videoPlayerHandle, 3, 1, 1); % z. B. im gleichen Grid wie VideoPlayer & Histogram
+% 
+% figureObj = Figure(figureId, {videoPlayerControls, videoPlayer}); % cell array erstellen (kann unterschiedliche objekt types beinhalten (Historgram oder VideoPlayer))
+% show(figureObj);
+
+[frameSum1, ~, ~]= frameSummation.computeSum(reducedFrameStack);
+
+figure(1); title("Nicht gestretchte Video Summe");
+imshow(frameSum1);
+
+figure(3); title("gestretchte Video Summe");
+
+stretchedFrameStack = stretchAndProject(frameStretcher, video, roi);
+% Debug: Überprüfe den Inhalt
+% disp(size(stretchedFrameStack));
+% imshow(min(stretchedFrameStack(:)));
+% imshow(max(stretchedFrameStack(:)));
+imshow(stretchedFrameStack);
+return;
+
+figure(2); title("gestretchte Video Frames");
+imshow(frameSummation.computeSum(stretchedFrameStack));
+
+return;
+
+
+return;
 
 videoPlayerHandle = VideoPlayerHandle(figureId, videoReader);
 videoPlayer = VideoPlayer(videoPlayerHandle, 1, 2, 2);
