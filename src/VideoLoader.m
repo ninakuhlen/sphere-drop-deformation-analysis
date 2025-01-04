@@ -27,6 +27,7 @@ classdef VideoLoader
             index = 1;
             while hasFrame(videoReader)
                 frame = readFrame(videoReader);
+                %imwrite(frame, obj.path + "\cache\" + fileName + "\\"  + index + ".png");
                 frames{end+1} = frame;
                 frameStack(:, :, index) = obj.frameConverter.convert(frame);
                 index = index + 1;

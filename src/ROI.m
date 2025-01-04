@@ -17,7 +17,7 @@ classdef ROI
 
         function reducedFrameStack = apply(obj, frameStack)
             % Überprüfen, ob der ROI innerhalb der Grenzen des Arrays liegt
-            [H, W, ~] = size(frameStack);
+            [H, W, ~] = size(frameStack)
             if obj.rowStart < 1 || obj.rowEnd > H || obj.colStart < 1 || obj.colEnd > W
                 error('ROI ist außerhalb der Grenzen des Arrays.');
             end
