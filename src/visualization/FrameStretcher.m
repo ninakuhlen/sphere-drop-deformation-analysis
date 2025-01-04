@@ -18,7 +18,7 @@ classdef FrameStretcher
             nFrames = video.nFrames;         % Anzahl der Frames
             
             % Zielanzahl der interpolierten Frames (gestreckte Tiefe)
-            pixelsPerMM = frameWidth / obj.fieldOfViewWidth;
+            pixelsPerMM = calculatePixelsPerMM(obj, frameWidth);
             desiredDepth = round(obj.traversedCameraDistance * pixelsPerMM);
             
             % Frame-Stapel mit Frames von 340 bis 550
@@ -39,6 +39,10 @@ classdef FrameStretcher
         
             % Berechne die seitliche Projektion durch Summieren der Höhe
             sideProjection = squeeze(sum(stretchedFrameStack, 1)); % Dimension: (roiWidth x desiredDepth)
+        end
+
+        function pixelsPerMM = calculatePixelsPerMM(obj, frameWidth)
+            pixelsPerMM = frameWidth / obj.fieldOfViewWidth;
         end
     end
 end

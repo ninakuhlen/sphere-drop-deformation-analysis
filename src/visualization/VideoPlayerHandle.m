@@ -16,14 +16,11 @@ classdef VideoPlayerHandle < handle % wird für events gebraucht
     end
 
     methods
-        function obj = VideoPlayerHandle(figureId, videoReader)
+        function obj = VideoPlayerHandle(figureId, video)
             obj.figureId = figureId;
-            obj.frameRate = videoReader.frameRate;
-            while hasFrame(videoReader)
-                frame = readFrame(videoReader);
-                obj.frames{end+1} = frame;
-                obj.frameAmount = obj.frameAmount + 1;
-            end
+            obj.frameRate = video.frameRate;
+            obj.frames = video.frames;
+            obj.frameAmount = video.nFrames;
         end
 
         function registerHandler(obj, eventName, callback)
