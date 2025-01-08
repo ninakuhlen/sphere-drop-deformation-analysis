@@ -29,7 +29,7 @@ classdef VideoFile < handle
                 1, obj.video.Width];
 
             % create cleanup tasks
-            cleanup = onCleanup(@() VideoFile.videoCleanup(obj.video));
+            % cleanup = onCleanup(@() VideoFile.videoCleanup(obj.video));
         end % VideoFile
 
         function value = get(obj, propertyName)
