@@ -27,9 +27,6 @@ classdef VideoFile < handle
             obj.pixelFormat = obj.video.BitsPerPixel;
             obj.roi = [1, obj.video.Height;
                 1, obj.video.Width];
-
-            % create cleanup tasks
-            % cleanup = onCleanup(@() VideoFile.videoCleanup(obj.video));
         end % VideoFile
 
         function value = get(obj, propertyName)
@@ -74,7 +71,7 @@ classdef VideoFile < handle
             end
 
             obj.resolution(dim) = obj.roi(dim, 2) - obj.roi(dim, 1) + 1;
-            
+
         end % setROI
 
         function frame = getFrame(obj)
@@ -111,4 +108,5 @@ classdef VideoFile < handle
             clc;
         end % videoCleanup
     end % private methods
+
 end % classdef

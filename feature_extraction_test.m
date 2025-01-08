@@ -1,10 +1,12 @@
 addpath('src\image_processing\');
 addpath('src\visualization\');
 
+
 showVideo = false;
 
 videoFile = VideoFile("30_deg_view_A.avi");
 videoFile.setROI(200, "width", "symmetrical"); % 200
+
 videoFile.setROI(-100, "height", "from center");
 % disp(videoFile);
 
@@ -20,6 +22,7 @@ if showVideo
 end
 
 frameStack = videoFile.createFrameContainer(1);
+
 
 %% Recording
 
@@ -515,4 +518,5 @@ function cleanupFunction()
     clear all;
     close all;
     clc;
+
 end

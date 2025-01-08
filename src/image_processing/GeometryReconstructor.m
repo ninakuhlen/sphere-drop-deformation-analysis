@@ -81,7 +81,6 @@ classdef GeometryReconstructor < handle
             for i = 2:length(customMethods)
                 fprintf('\t%s\n', customMethods{i});
             end
-
         end % disp
 
         function points = createCoordGrid(obj, alpha)
