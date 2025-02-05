@@ -12,7 +12,7 @@ classdef VideoFile < handle
         roi % [px]
     end % getable private properties
     properties (Access = public)
-        parentPath = ".\data\recordings\testing\";
+        parentPath = "..\data\recordings\";
         frameIndex = 0;
     end % public properties
     methods

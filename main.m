@@ -4,7 +4,7 @@ addpath('src\visualization\')
 
 % Variablen
 brightnessThreshold = 10;
-videoPath = "data\recordings\testing\30_deg_view_A.avi";
+videoPath = "data\recordings\testing\30_deg_view_B.avi";
 figureId = 1;
 % [file, location] = uigetfile('*.avi');
 % if isequal(file, 0)
