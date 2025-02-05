@@ -1,3 +1,6 @@
+clear all;
+clc;
+
 addpath('src\image_processing\');
 addpath('src\visualization\');
 
