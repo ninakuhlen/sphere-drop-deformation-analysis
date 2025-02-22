@@ -11,12 +11,12 @@ videoFile = VideoFile("30_deg_view_A.avi");
 videoFile.setROI(200, "width", "symmetrical"); % 200
 
 videoFile.setROI(-100, "height", "from center");
-disp(videoFile);
+% disp(videoFile);
 
 pre = ImageProcessor();
-disp(pre);
+% disp(pre);
 
-reconstructor = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 300, "translationVelocity", 3.2});
+reconstructor = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 320, "translationVelocity", 3.2});
 [nPixels, error] = reconstructor.calculateStretchFactor(reconstructor.voxelDimensions);
 disp(reconstructor);
 
@@ -25,6 +25,9 @@ if showVideo
 end
 
 frameStack = videoFile.createFrameContainer(1);
+
+
+%% Recording
 
 while true
     try
@@ -37,17 +40,17 @@ while true
     frameStruct = pre.asGrayscale(frameStruct);
 
     % gamma correction: brighten (g < 1), darken (g > 1)
-    frameStruct.image = imadjust(frameStruct.image, [], [], 0.5);
+    % frameStruct.image = imadjust(frameStruct.image, [], [], 0.75);
     frameStruct.image = medfilt2(frameStruct.image, [15 15], "symmetric");
     
     % mean filtering
     frameStruct = pre.meanFilter(frameStruct, 0, "<=");
 
     % stretch filtered values to range 0 to 255 again
-    % frameStruct = pre.asGrayscale(frameStruct);
+    frameStruct = pre.asGrayscale(frameStruct);
 
     % set zero values to nan
-    % frameStruct = pre.threshold(frameStruct, 0, "==");
+    frameStruct = pre.threshold(frameStruct, 0, "==");
 
     frameStack(:,:,end - videoFile.frameIndex + 1) = frameStruct.image;
     
@@ -59,46 +62,83 @@ while true
     end
 end
 
+%% Projection
 
 modeA = "sum";
 modeB = "min";
-axis = "depth";
-projectionDepthA = pre.projectFrames(frameStack, modeA, axis);
-projectionDepthB = pre.projectFrames(frameStack, modeB, axis);
-
-projectionDepthA = pre.asGrayscale(projectionDepthA);
-projectionDepthB = pre.asGrayscale(projectionDepthB);
-
 axis = "height";
-projectionHeightA = pre.projectFrames(frameStack, modeA, axis);
-projectionHeightB = pre.projectFrames(frameStack, modeB, axis);
+projectionA = pre.projectFrames(frameStack, modeA, axis);
+projectionB = pre.projectFrames(frameStack, modeB, axis);
 
-projectionHeightA = pre.asGrayscale(projectionHeightA);
-projectionHeightB = pre.asGrayscale(projectionHeightB);
+projectionA = pre.asGrayscale(projectionA);
+projectionB = pre.asGrayscale(projectionB);
 
-axis = "width";
-projectionWidthA = pre.projectFrames(frameStack, modeA, axis);
-projectionWidthB = pre.projectFrames(frameStack, modeB, axis);
+multiPlot(projectionA, projectionB);
 
+stretchedProjection = pre.stretchImage(projectionA, "height", nPixels);
 
-% q = quantile(projectionHeightB.image, [0.05 0.25 0.5 0.75 0.95], "all")
-% [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(projectionHeightB.image, 256);
-% t1 = imbinarize(projectionHeightB.image);
+% mask = uint8(imbinarize(stretchedProjection.image, 182/255) * 255);
+mask = uint8(imbinarize(stretchedProjection.image) * 255);
 
-% t2 = imbinarize(projectionHeightB.image, q(5)/255);
-% t1 = pre.asImageStruct(t1);
-% t2 = pre.asImageStruct(t2);
-% multiPlot(t1, t2);
-%
-% projectionHeightA.image = meanFilter(projectionHeightA.image, -1);
+imshow(mask);
 
-multiPlot(projectionDepthA, projectionDepthB, projectionHeightA, projectionHeightB, projectionWidthA, projectionWidthB);
+pause;
 
-stretchedProjection = pre.stretchImage(projectionHeightA, "height", nPixels);
+% stretchedProjection.image = stretchedProjection.image .* mask;
+findLargestHistogramSlopeWithEnvelope(stretchedProjection.image, 256);
 
 % stretchedProjection.image = medfilt2(stretchedProjection.image, [45, 25], "symmetric");
-[roiImage, ~] = pre.selectROI(stretchedProjection);
+[roiImage, roiCoords] = pre.selectROI(stretchedProjection);
 roiImage = pre.asGrayscale(roiImage);
+
+
+%% Pointcloud
+
+roiCoords(1,:) = floorDiv(roiCoords(1,:), nPixels);
+pointsXYZA = reconstructor.createCoordGrid(frameStack);
+disp("")
+fprintf("Width Min Max:\t%s\n", num2str([min(pointsXYZA(:,1), [], "all") max(pointsXYZA(:,1), [], "all")]));
+fprintf("Height Min Max:\t%s\n", num2str([min(pointsXYZA(:,2), [], "all") max(pointsXYZA(:,2), [], "all")]));
+fprintf("Depth Min Max:\t%s\n", num2str([min(pointsXYZA(:,3), [], "all") max(pointsXYZA(:,3), [], "all")]));
+fprintf("Uncropped Size:\t%s\n", num2str(size(pointsXYZA)));
+% width cropping
+roiPointsXYZA = pointsXYZA(pointsXYZA(:,1) >= roiCoords(2,1), :);
+roiPointsXYZA = roiPointsXYZA(roiPointsXYZA(:,1) <= roiCoords(2,2), :);
+disp("")
+fprintf("Width Min Max:\t%s\n", num2str([min(roiPointsXYZA(:,1), [], "all") max(roiPointsXYZA(:,1), [], "all")]));
+fprintf("Height Min Max:\t%s\n", num2str([min(roiPointsXYZA(:,2), [], "all") max(roiPointsXYZA(:,2), [], "all")]));
+fprintf("Depth Min Max:\t%s\n", num2str([min(roiPointsXYZA(:,3), [], "all") max(roiPointsXYZA(:,3), [], "all")]));
+fprintf("Width Cropped Size:\t%s\n", num2str(size(roiPointsXYZA)));
+
+
+% depth cropping
+roiPointsXYZA = roiPointsXYZA(roiPointsXYZA(:,3) >= roiCoords(1,1), :);
+roiPointsXYZA = roiPointsXYZA(roiPointsXYZA(:,3) <= roiCoords(1,2), :);
+disp("")
+fprintf("Width Min Max:\t%s\n", num2str([min(roiPointsXYZA(:,1), [], "all") max(roiPointsXYZA(:,1), [], "all")]));
+fprintf("Height Min Max:\t%s\n", num2str([min(roiPointsXYZA(:,2), [], "all") max(roiPointsXYZA(:,2), [], "all")]));
+fprintf("Depth Min Max:\t%s\n", num2str([min(roiPointsXYZA(:,3), [], "all") max(roiPointsXYZA(:,3), [], "all")]));
+fprintf("Depth Cropped Size:\t%s\n", num2str(size(roiPointsXYZA)));
+% grayscale thresholding
+threshold = 0;
+filteredPointsXYZA = roiPointsXYZA(roiPointsXYZA(:,4) > threshold, :);
+fprintf("GS Thresholded Size:\t%s", num2str(size(filteredPointsXYZA)));
+% filteredPoints = removeRandomPoints(filteredPoints, 99);
+% size(filteredPoints)
+
+sclaedPointsXYZA = reconstructor.scaleCoordGrid(filteredPointsXYZA);
+stepSize = 1;
+plotData(...
+    sclaedPointsXYZA(1:stepSize:end,1), ... % X = width
+    sclaedPointsXYZA(1:stepSize:end,3), ... % Y = depth
+    sclaedPointsXYZA(1:stepSize:end,2) ... % Z = height (2), grayscale (4)
+    );
+
+pause;
+
+clear cleanupObj;
+return
+
 
 [largestSlope, binIndex] = findLargestHistogramSlopeWithEnvelope(roiImage.image, 256);
 
@@ -118,19 +158,37 @@ end
 kernelShape = "disk";
 kernelSize = 15;
 morphFigure = figure;
+filterKernel = strel(kernelShape, kernelSize);
+morphedImage = imclose(binarizedImage, filterKernel);
+morphedImage = pre.multiStepMorphing(morphedImage, kernelShape, kernelSize, "shrink", "erode", morphFigure, binarizedImage);
+morphedImage = pre.multiStepMorphing(morphedImage, kernelShape, kernelSize, "grow", "dilate", morphFigure, binarizedImage);
+pause;
 
-morphedImage = pre.multiStepMorphing(binarizedImage, kernelShape, kernelSize, "shrink", "erode", morphFigure, binarizedImage);
-[~] = pre.multiStepMorphing(morphedImage, kernelShape, kernelSize, "grow", "dilate", morphFigure, binarizedImage);
+imshow(morphedImage);
 
+
+edgeImage = edge(morphedImage,"Canny");
+
+edgeImage = bwmorph(edgeImage, "branchpoints");
+pause;
+
+imshow(edgeImage);
+
+pause;
 
 % initial dilation
 % filterKernel = strel(kernelShape, kernelSize);
 % morphedImage = imdilate(binarizedImage, filterKernel);
 
+resizedBinaryImage = imresize(morphedImage, 0.5, "nearest");
 
+[yCoords, xCoords] = find(edgeImage);
+yDim = max(yCoords) - min(yCoords)
+xDim = max(xCoords) - min(xCoords)
 
-
-%drawMinBoundCircle(morphedImage);
+yDimMM = yDim * reconstructor.voxelDimensions(2)
+xDimMM = xDim * reconstructor.voxelDimensions(1)
+% drawMinBoundCircle(edgeImage);
 pause;
 
 close all;
@@ -256,85 +314,6 @@ legend('Histogramm', 'Einhüllende', 'Größtes Gefälle');
 hold off;
 end
 
-
-function fitBlob(binaryImage, kernelSize)
-
-
-end
-
-
-
-function morphedImage = multistepOpening(binarizedImage, initialKernelSize)
-
-% Überprüfen, ob das Eingabebild binarisiert ist.
-if ~islogical(binarizedImage)
-    error('Das Eingabebild muss binarisiert (logisch) sein.');
-end
-
-kernelShape = "disk";
-
-% Originalbild als Hintergrund
-originalImage = repmat(binarizedImage, [1, 1, 3]);
-
-% Kernel-Größe und Iteration initialisieren
-kernelSize = 3;
-iteration = 1;
-
-% initial dilation
-filterKernel = strel(kernelShape, kernelSize);
-morphedImage = imdilate(binarizedImage, filterKernel);
-
-figure("Name", "Multistep Opening");
-
-% Schleife, bis die Kernel-Größe kleiner als 3 ist
-while kernelSize <= initialKernelSize
-    % Morphologische Operationen: Erosion
-    filterKernel = strel(kernelShape, kernelSize);
-    morphedImage = imclose(morphedImage, filterKernel);
-
-    % Ergebnis als farbliche Hervorhebung im Bild
-    overlayImage = uint8(originalImage); % Verwende das Originalbild als Basis
-    overlayImage(:,:,1) = uint8(morphedImage* 255); % Rot für Erosion
-
-    % Alpha-Blending mit dem Originalbild
-    finalImage = uint8((double(originalImage) * 255 + double(overlayImage)) / 2); % Alpha-Blending
-
-    % Ausgabe des Bildes
-    imshow(finalImage);
-    title("Erosion - Iteration " + num2str(iteration) + " mit Kernel-Größe " + num2str(kernelSize));
-
-    % Iteration und Kernel-Größe anpassen
-    iteration = iteration + 1;
-    kernelSize = kernelSize + 2;
-    pause(0.25);
-end
-
-% Zurücksetzen der Kernel-Größe für Dilatation
-kernelSize = 3;
-iteration = 1;
-
-while kernelSize <= initialKernelSize
-    % Morphologische Operationen: Dilatation
-    filterKernel = strel(kernelShape, kernelSize);
-    morphedImage = imopen(morphedImage, filterKernel);
-
-    % Ergebnis als farbliche Hervorhebung im Bild
-    overlayImage = uint8(originalImage); % Verwende das Originalbild als Basis
-    overlayImage(:,:,2) = uint8(morphedImage* 255) ; % Grün für Dilatation
-
-    % Alpha-Blending mit dem Originalbild
-    finalImage = uint8((double(originalImage)* 255 + double(overlayImage)) / 2); % Alpha-Blending
-
-    % Ausgabe des Bildes
-    imshow(finalImage);
-    title("Dilatation - Iteration " + num2str(iteration) + " mit Kernel-Größe " + num2str(kernelSize));
-
-    % Iteration und Kernel-Größe anpassen
-    iteration = iteration + 1;
-    kernelSize = kernelSize + 2;
-    pause(0.25);
-end
-end
 
 function radius = fitCircleToBinaryImage(binaryImage)
     % Überprüfe ob das Eingabeformat binär ist
@@ -477,4 +456,70 @@ function [xc, yc, r] = minBoundCircleWithPoint(points, p)
         yc = center(2);
         r = norm([xc - x1, yc - y1]);
     end
+end
+
+
+
+function plotData(x, y, z)
+    % Funktion zur Visualisierung von Daten aus bis zu drei Vektoren.
+    % - Wenn z weggelassen wird, wird ein 2D-Plot erstellt.
+    % - Wenn z angegeben wird, wird ein 3D-Plot erstellt.
+    
+    f = figure; % Neues Fenster für den Plot
+
+    c = z;
+
+    if nargin == 2
+        % 2D Daten
+        p = scatter(x, y, 'o-'); % Zeichnet einen 2D-Plot mit Linien und Punkten
+        xlabel('X');
+        ylabel('Y');
+        title('2D Datenvisualisierung');
+        grid on;
+    elseif nargin == 3
+        % 3D Daten
+        p = scatter3(x, y, z, 8, z,"filled","o"); % Zeichnet einen 3D-Plot mit Linien und Punkten
+        % p.Color = "blue";
+        % p.Marker = ".";
+        xlabel('X');
+        ylabel('Y');
+        zlabel('Z');
+        title('3D Datenvisualisierung');
+        colorbar;
+        axis equal;
+        grid on;
+        rotate3d on; % Aktiviert die 3D-Rotation mit der Maus
+    else
+        error('Bitte entweder zwei oder drei Vektoren als Argumente übergeben.');
+    end
+end
+
+function remainingPoints = removeRandomPoints(points, percentage)
+    % Punkte zufällig entfernen
+    % points: Ein Nxm-Matrix, wobei N die Anzahl der Punkte und m die Anzahl der Dimensionen pro Punkt ist
+    % percentage: Der Prozentsatz der Punkte, die entfernt werden sollen (zwischen 0 und 100)
+    
+    % Gesamtzahl der Punkte
+    numPoints = size(points, 1);
+    
+    % Anzahl der zu entfernenden Punkte berechnen
+    numToRemove = round((percentage / 100) * numPoints);
+    
+    % Zufällige Permutation der Indizes der Punkte
+    indices = randperm(numPoints);
+    
+    % Indizes der zu entfernenden Punkte
+    removeIndices = indices(1:numToRemove);
+    
+    % Den Rest der Punkte behalten
+    remainingPoints = points;
+    remainingPoints(removeIndices, :) = [];
+end
+
+
+function cleanupFunction()
+    clear all;
+    close all;
+    clc;
+
 end

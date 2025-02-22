@@ -254,24 +254,31 @@ classdef ImageProcessor < handle
 
             pause;
 
+            [imageHeight, imageWidth] = size(imageStruct.image);
+
             % get roi position
             rectanglePosition = round(rectangle.Position); % [x, y, width, height]
-            roi = rectanglePosition;
+            
+            % solveses a rare 'index out of bounds' error
+            roiMinX = max([rectanglePosition(1), 1]);
+            roiMinY = max([rectanglePosition(2), 1]);
+            roiMaxX = min([imageWidth, rectanglePosition(1)+rectanglePosition(3)]);
+            roiMaxY = min([imageHeight, rectanglePosition(2)+rectanglePosition(4)]);
 
-            % create roi image struct and cut roi from input image
+            % pack results for output
+            roi = [roiMinY, roiMaxY; roiMinX, roiMaxX];
+
+            % create new imageStruct to return resulting roi image
             roiImageStruct = imageStruct;
-            xLimits = [roi(1), roi(1)+roi(3)];
-            yLimits = [roi(2), roi(2)+roi(4)];
-            roiImageStruct.image = imageStruct.image(yLimits(1):yLimits(2),xLimits(1):xLimits(2));
-
+            roiImageStruct.image = imageStruct.image(roiMinY:roiMaxY,roiMinX:roiMaxX);
             roiImageStruct.title = "ROI of " + roiImageStruct.title;
 
             close;
 
             % print function results in command window
             fprintf("\n\tResults:\n");
-            fprintf("\t\t ROI Position:\t%s\n", num2str(roi(1:2)));
-            fprintf("\t\t ROI Shape:\t%s\n", num2str(roi(3:4)));
+            fprintf("\t\t ROI Position:\t%s\n", num2str(rectanglePosition(1:2)));
+            fprintf("\t\t ROI Shape:\t%s\n", num2str(rectanglePosition(3:4)));
 
             % show roi image in new figure
             figure("Name", "ROI Display");

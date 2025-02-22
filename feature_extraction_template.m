@@ -9,6 +9,7 @@ videoFile.setROI(200, "width", "symmetrical"); % 200
 videoFile.setROI(-100, "height", "from center");
 disp(videoFile);
 
+
 reconstructor = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 300, "translationVelocity", 3.2});
 [nPixels, error] = reconstructor.calculateStretchFactor(reconstructor.voxelDimensions);
 disp(reconstructor);
@@ -64,7 +65,7 @@ end
 %% Erstellung der Projektionen
 
 mode = "max";
-axis = "depth";
+axis = "height";
 projectionHeight = pre.projectFrames(frameStack, mode, axis);
 projectionHeight = pre.asGrayscale(projectionHeight);
 

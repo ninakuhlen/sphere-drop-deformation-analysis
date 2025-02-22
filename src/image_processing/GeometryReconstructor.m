@@ -83,18 +83,29 @@ classdef GeometryReconstructor < handle
             end
         end % disp
 
-        function points = createVoxelGrid(obj)
-            [height, width, depth] = obj.voxelDimensions;
+        function points = createCoordGrid(obj, alpha)
+            height = 1:obj.gridDimensions(1);
+            width = 1:obj.gridDimensions(2);
+            depth = 1:obj.gridDimensions(3);
+
+            % [height width depth] = obj.gridDimensions;
             [x, y, z] = meshgrid(width, height, depth);
-            x = x * obj.voxelDimensions(1);
-            y = y * obj.voxelDimensions(2);
-            z = z * obj.voxelDimensions(3);
+     
 
-            points = [x(:) y(:) z(:)];
-
-            disp(size(points))
+            if nargin == 1
+                points = [x(:) y(:) z(:)];
+            elseif nargin == 2
+                points = [x(:) y(:) z(:) alpha(:)];
+            end
 
         end % createVoxelGrid
+
+        function points = scaleCoordGrid(obj, coordGrid)
+            points = coordGrid;
+            points(:,1) = points(:,1) * obj.voxelDimensions(1);
+            points(:,2) = points(:,2) * obj.voxelDimensions(2);
+            points(:,3) = points(:,3) * obj.voxelDimensions(3);
+        end % scaleCoordGrid
 
     end % methods
     methods (Static)

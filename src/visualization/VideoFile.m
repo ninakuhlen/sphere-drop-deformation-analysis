@@ -27,10 +27,6 @@ classdef VideoFile < handle
             obj.pixelFormat = obj.video.BitsPerPixel;
             obj.roi = [1, obj.video.Height;
                 1, obj.video.Width];
-
-            % create cleanup tasks
-            cleanup = onCleanup(@() VideoFile.videoCleanup(obj.video));
-
         end % VideoFile
 
         function value = get(obj, propertyName)
