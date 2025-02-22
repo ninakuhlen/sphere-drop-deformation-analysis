@@ -1,15 +1,10 @@
 clear all;
-addpath('visualization\')
+close all;
+addpath('containers\')
 maxNumCompThreads('automatic'); % use maximum available threads
 
-% camera setting are derived from Image Acquisition Explorer:
-% - AdaptorName: EXPLORER/Device List/a2A1920-160umBAS (40332755)/Adaptor
-% - DeviceID: EXPLORER/Device List/a2A1920-160umBAS (40332755)/DeviceID
-% - Format: EXPLORER/CONFIGURE FORMAT/Video Format
-camera = BaslerCamera("adaptorName", "gentl", ...
-    "deviceID", 1, ...
-    "pixelFormat", "Mono8", ...
-    "frameRate", 30)
+% camera setup
+camera = BaslerCamera("gentl", 30);
 
 fig = figure('Name', 'Live-Bild von der Kamera', 'NumberTitle', 'off');
 
