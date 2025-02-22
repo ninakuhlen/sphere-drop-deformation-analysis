@@ -1,14 +1,17 @@
 classdef GeometryReconstructor < handle
-    properties (GetAccess = public, SetAccess = private)
-        gridDimensions
-        voxelDimensions
-        stretch
-        sphereRadius
+    properties (Access = private)
+        units string = ["mm/px", "mm/px", "mm/f", "px/f", "mm/f", "mm"];
     end % private properties
-    properties (Access = public)
-    end % public properties
+    properties (GetAccess = public, SetAccess = private)
+        voxelEdgeX
+        voxelEdgeY
+        voxelEdgeZ
+        stretchFactor
+        stretchError
+        sphereRadius
+    end % getable properties
     methods
-        function obj = GeometryReconstructor(video, sphereDiameter, objectWidth, velocityInfo)
+        function obj = GeometryReconstructor(videoFile, sphereDiameter, objectWidth, velocityInfo)
 
             % parse keyword value pairs
             parser = inputParser;
@@ -22,45 +25,57 @@ classdef GeometryReconstructor < handle
             coveredDistance = parser.Results.coveredDistance;
 
             if ~isnan(coveredDistance)
-                translationVelocity = coveredDistance / video.duration;
+                translationVelocity = coveredDistance / videoFile.duration;
             end
 
-            obj.voxelDimensions = GeometryReconstructor.calculateVoxelDimensions(...
+            frameResolution = videoFile.get("originalResolution");
+            frameWidth = frameResolution(2);
+
+            voxelDimensions = GeometryReconstructor.calculateVoxelDimensions(...
                 objectWidth, ...
-                video.resolution(2), ...
-                video.frameRate, ...
+                frameWidth, ...
+                videoFile.frameRate, ...
                 translationVelocity ...
                 );
 
-            obj.gridDimensions = [video.resolution(1) video.resolution(2) video.nFrames];
+            obj.voxelEdgeY = voxelDimensions(1);
+            obj.voxelEdgeX = voxelDimensions(2);
+            obj.voxelEdgeZ = voxelDimensions(3);
+
+            [obj.stretchFactor, obj.stretchError] = GeometryReconstructor.calculateStretchFactor(voxelDimensions);
+
             obj.sphereRadius = sphereDiameter / 2;
         end % GeometryReconstructor
 
-        function value = get(obj, propertyName)
-            if nargin == 1
-                objectProperties = properties(obj);
-                value = struct();
-                for i = 1:length(objectProperties)
-                    value.(objectProperties{i}) = obj.(objectProperties{i});
-                end
-            else
-                if isprop(obj, propertyName)
-                    value = obj.(propertyName);
-                else
-                    error(['Property "', propertyName, '" does not exist in the class ', class(obj),'.']);
-                end
-            end
-        end % get
+        function domeHeight = calculateDomeHeight(obj, baseRadius)
+            domeHeight = obj.sphereRadius - sqrt(obj.sphereRadius^2 - baseRadius^2);
+        end % calculateDomeHeight
+
+        function calculateDomeDimensions(obj, binaryImageData)
+            edgeImage = edge(binaryImageData.getData(),"Canny");
+            edgeImage = bwmorph(edgeImage, "branchpoints");
+
+            [yCoords, xCoords] = find(edgeImage);
+            yDim = max(yCoords) - min(yCoords);
+            xDim = max(xCoords) - min(xCoords);
+            
+            yDimMM = yDim * obj.voxelEdgeY
+            xDimMM = xDim * obj.voxelEdgeX
+
+            depth = obj.calculateDomeHeight(xDimMM/2)
+
+
+        end % calculateDomeDimensions
 
         function disp(obj)
             className = class(obj);
-            fprintf('\n%s\n', className);
+            fprintf("\n%s\n", className);
 
             % print all public properties
-            fprintf('Properties:\n');
+            fprintf("Properties:\n");
             objectProperties = properties(obj);
             for i = 1:length(objectProperties)
-                fprintf("\t%s:\t%s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})));
+                fprintf("\t%s:\t%s %s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})), obj.units(i));
             end
 
             % get all methods
@@ -76,28 +91,15 @@ classdef GeometryReconstructor < handle
 
 
             % print all public custom methods
-            fprintf('Custom Methods:\n');
+            fprintf("Custom Methods:\n");
             customMethods = setdiff(allMethods, inheritedMethods);
             for i = 2:length(customMethods)
-                fprintf('\t%s\n', customMethods{i});
+                fprintf("\t%s\n", customMethods{i});
             end
         end % disp
 
-        function points = createVoxelGrid(obj)
-            [height, width, depth] = obj.voxelDimensions;
-            [x, y, z] = meshgrid(width, height, depth);
-            x = x * obj.voxelDimensions(1);
-            y = y * obj.voxelDimensions(2);
-            z = z * obj.voxelDimensions(3);
-
-            points = [x(:) y(:) z(:)];
-
-            disp(size(points))
-
-        end % createVoxelGrid
-
     end % methods
-    methods (Static)
+    methods (Static, Access = private)
 
         function voxelDimensions = calculateVoxelDimensions(objectWidth, frameWidth, frameRate, translationVelocity)
             voxelXY = objectWidth / frameWidth;
@@ -105,15 +107,10 @@ classdef GeometryReconstructor < handle
             voxelDimensions = [voxelXY voxelXY voxelZ];
         end % calculateVoxelDimensions
 
-        function [nPixels, error] = calculateStretchFactor(voxelDimensions)
-            nPixels = floorDiv(voxelDimensions(3), voxelDimensions(1));
-            error = rem(voxelDimensions(3), voxelDimensions(1));
-        end %
+        function [stretchFactor, stretchError] = calculateStretchFactor(voxelDimensions)
+            stretchFactor = floorDiv(voxelDimensions(3), voxelDimensions(1));
+            stretchError = rem(voxelDimensions(3), voxelDimensions(1)) * voxelDimensions(1);
+        end % calculateStretchFactor
 
-
-        function domeHeight = calculateDomeHeight(sphereRadius, baseRadius)
-            domeHeight = sphereRadius - sqrt(sphereRadius^2 - baseRadius^2);
-        end % calculateDomeHeight
-
-    end % static methods
+    end % static private methods
 end % classdef

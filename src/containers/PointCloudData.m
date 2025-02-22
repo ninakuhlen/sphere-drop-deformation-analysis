@@ -1,7 +1,6 @@
-classdef PointCloudData < handle
+classdef PointCloudData < handle & matlab.mixin.Copyable
     properties (Access = private)
         data
-        pointCloudFigure
         labels string;
         units string;
     end % private properties
@@ -23,7 +22,7 @@ classdef PointCloudData < handle
                 case 1
                     return;
                 case 2
-                    obj.name = name;
+                    obj.name = string(name);
             end
 
         end % PointCloudData
@@ -74,11 +73,11 @@ classdef PointCloudData < handle
         function setUnit(obj, newUnit, label)
             switch nargin
                 case 2
-                    obj.units(:) = "[" + newUnit + "]";
+                    obj.units(:) = sprintf("[%s]", newUnit);
                 case 3
                     keys = obj.data.keys;
                     i = find(keys==label);
-                    obj.units(i) = "[" + newUnit + "]";
+                    obj.units(i) = sprintf("[%s]", newUnit);
             end
         end % setUnit
 
@@ -122,8 +121,8 @@ classdef PointCloudData < handle
         function getInfo(obj)
             fprintf("\nPoint cloud '%s':\n", obj.name)
 
-            nPoints = size(obj.getData(),1);
-            fprintf("\tNumber of Points:\t%s\n", nPoints);
+            nPoints = size(obj.getData(), 1);
+            fprintf("\tNumber of Points:\t%s\n", num2str(nPoints));
 
             keys = obj.data.keys;
             for i = 1:length(keys)
@@ -136,6 +135,7 @@ classdef PointCloudData < handle
         end % getInfo
 
         function saveFigure(obj, fileName)
+            fileName = string(fileName);
             parentPath = "\results\point_clouds\";
             mkdir(parentPath);
             filePath = parentPath + fileName + ".fig";
@@ -172,10 +172,12 @@ classdef PointCloudData < handle
             end
         end % disp
 
-        function show(obj, name, x, y, z)
+        function show(obj, windowTitle, x, y, z)
 
-            className = class(obj);
-            obj.pointCloudFigure = figure("Name",className, "NumberTitle","on");
+            windowTitle = string(windowTitle);
+            set(gcf, "Name", windowTitle);
+
+            labelWithUnit = @(x) (x) + " " + obj.units(find(obj.data.keys == (x)));
 
             if nargin == 4
                 % plot 2 data coordinates
@@ -185,9 +187,9 @@ classdef PointCloudData < handle
 
                 scatter(xData, yData, 8, "blue", "filled", "o");
 
-                xlabel(x);
-                ylabel(y);
-                title(name);
+                xlabel(labelWithUnit(x));
+                ylabel(labelWithUnit(y));
+                title(windowTitle);
                 grid on;
 
             elseif nargin == 5
@@ -199,29 +201,60 @@ classdef PointCloudData < handle
 
                 scatter3(xData, yData, zData, 8, zData,"filled","o");
 
-                xlabel(x);
-                ylabel(y);
-                zlabel(z);
-                title(name);
+                xlabel(labelWithUnit(x));
+                ylabel(labelWithUnit(y));
+                zlabel(labelWithUnit(z));
+                title(windowTitle);
                 colorBar = colorbar;
                 axis equal;
                 grid on;
                 rotate3d on;
 
-                i = find(obj.data.keys == z);
-                colorBarTitle = z + " " + obj.units(i);
-
-                title(colorBar, colorBarTitle)
-
+                title(colorBar, labelWithUnit(z))
 
             else
-                error('Bitte entweder zwei oder drei Vektoren als Argumente übergeben.');
+                error("Invalid number of arguments! Please select either X and Y axes or X, Y and Z axes.");
             end
 
         end % show
 
     end % public methods
+    
+    methods (Static)
+        function obj = fromImageStack(imageStack, name, scalingFactor)
 
+            switch nargin
+                case {1, 2}
+                    scalingFactor = 1;
+                case 3
+                    assert(size(scalingFactor, 2) == 1 || size(scalingFactor, 2) == 3, "Invalid number of scaling factors! Either insert a single scalar or a list of three scalars.");
+            end
+
+            [height, width, depth] = size(imageStack.getData());
+            [x, y, z] = meshgrid(1:width, 1:height, 1:depth);
+
+            switch size(scalingFactor, 2)
+                case 1
+                    x = x * scalingFactor;
+                    y = y * scalingFactor;
+                    z = z * scalingFactor;
+                case 3
+                    x = x * scalingFactor(1);
+                    y = y * scalingFactor(2);
+                    z = z * scalingFactor(3);
+
+            end
+
+            a = imageStack.getData();
+
+            points = [x(:) y(:) z(:) a(:)];
+
+            disp(size(points))
+
+            obj = PointCloudData(points, name);
+        end % fromImageStack
+    
+    end % static methods
     methods (Static, Access=private)
         function d = createDictionary(pointList, keys)
             n = size(pointList, 2);
@@ -241,6 +274,6 @@ classdef PointCloudData < handle
 
             d = dictionary(keys, values);
         end % createDictionary
-    end % private methods
+    end % static private methods
 
 end % classdef

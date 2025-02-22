@@ -1,8 +1,8 @@
 classdef BaslerCamera
     properties (Access = private)
-        adaptorName = 'gentl';
-        deviceID = 1;
-        pixelFormat = 'Mono8';
+        adaptorName string = "gentl";
+        deviceID;
+        pixelFormat;
     end % private properties
     properties (Access = public)
         deviceConnection
@@ -10,20 +10,14 @@ classdef BaslerCamera
     end % public properties
 
     methods
-        function obj = BaslerCamera(varargin)
+        function obj = BaslerCamera(adaptorName, frameRate)
 
-            % parse keyword value pairs
-            parser = inputParser;
+            connectionInfo = imaqhwinfo(obj.adaptorName);
 
-            addParameter(parser, "adaptorName", 'gentl', @BaslerCamera.validateAdaptor);
-            addParameter(parser, "deviceID", 1);
-            addParameter(parser, "pixelFormat", 'Mono8');
-            addParameter(parser, "frameRate", 30);
+            deviceInfo = connectionInfo.DeviceInfo
 
-            parse(parser, varargin{:});
-            obj.adaptorName = parser.Results.adaptorName;
-            obj.deviceID = parser.Results.deviceID;
-            obj.pixelFormat = parser.Results.pixelFormat;
+            obj.pixelFormat = deviceInfo.DefaultFormat;
+            obj.deviceID = deviceInfo.DeviceID;
 
             % setup device connection
             obj.deviceConnection = videoinput(obj.adaptorName, obj.deviceID, obj.pixelFormat);
@@ -36,7 +30,7 @@ classdef BaslerCamera
             % setup device
             obj.deviceProperties = getselectedsource(obj.deviceConnection);
             if isvalid(obj.deviceProperties)
-                obj.deviceProperties.ExposureTime = int32(10^6 / parser.Results.frameRate)
+                obj.deviceProperties.ExposureTime = int32(10^6 / frameRate);
             end
 
             % create cleanup tasks

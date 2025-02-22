@@ -1,18 +1,35 @@
 classdef ImageProcessorV2 < handle
     properties (Access=private)
-        logConversions logical = false;
-        logFilters logical = false;
+        oldImage
+        newImage
     end % private properties
     methods
         function obj = ImageProcessorV2()
+            
         end % ImageProcessor
+
+        function show(obj, mode)
+            switch nargin
+                case 1
+                    mode = "diff";
+                case 2
+                    mode = lower(mode);
+            end
+
+            switch mode
+                case "falsecolor"
+                    imshowpair(obj.oldImage, obj.newImage, "falsecolor", "ColorChannels", "green-magenta");
+                otherwise
+                    imshowpair(obj.oldImage, obj.newImage, mode)
+            end
+        end % show
 
         function disp(obj)
             className = class(obj);
-            fprintf('\n%s\n', className);
+            fprintf("\n%s\n", className);
 
             % print all public properties
-            fprintf('Properties:\n');
+            fprintf("Properties:\n");
             objectProperties = properties(obj);
             for i = 1:length(objectProperties)
                 fprintf("\t%s:\t%s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})));
@@ -29,104 +46,170 @@ classdef ImageProcessorV2 < handle
                 inheritedMethods = [inheritedMethods; methods(superClasses(k).Name)];
             end
 
-
             % print all public custom methods
-            fprintf('Custom Methods:\n');
+            fprintf("Custom Methods:\n");
             customMethods = setdiff(allMethods, inheritedMethods);
             for i = 2:length(customMethods)
-                fprintf('\t%s\n', customMethods{i});
+                fprintf("\t%s\n", customMethods{i});
             end
 
         end % disp
 
-        %% Conversion Operations
+    end % methods
 
-        
+    methods (Static)
 
+        function setGamma(imageData, gamma)
+            oldImage = imageData.getData();
+            newImage = imadjust(oldImage, [], [], gamma);
 
+            
+            imageData.setData(imadjust(imageData.getData(), [], [], gamma));
+            imageData.appendLog(string(sprintf("Gamma correction with gamma = %0.2f", gamma)));
+        end % setGamma
 
+        function medianFilter(imageData, kernelSize, nIterations)
+            assert((mod(kernelSize,2)~=0), "Expected odd kernel size!");
 
+            switch nargin
+                case 2
+                    nIterations = 1;
+                case 3
+                    % use number of iterations given
+            end
 
-        %% Filter Operations
+            for i = 1:nIterations
+                imageData.setData(medfilt2(imageData.getData(), [kernelSize kernelSize], "symmetric"));
+                imageData.appendLog(string(sprintf("Median blurred with kernel size %d x %d pixels.", kernelSize, kernelSize)));
+            end
+        end % medianFilter
 
-        function filteredStruct = threshold(obj, imageStruct, value, mode)
-            filteredStruct = imageStruct;
+        function gaussianFilter(imageData, sigma, kernelSize, nIterations)
+            assert((mod(kernelSize,2)~=0), "Expected odd kernel size!");
+
+            switch nargin
+                case 3
+                    nIterations = 1;
+                case 4
+                    % use number of iterations given
+            end
+            
+            for i = 1:nIterations
+                imageData.setData(imgaussfilt(imageData.getData(), sigma, "FilterSize", kernelSize, "Padding", "symmetric"));
+                imageData.appendLog(string(sprintf("Gaussian blurred with sigma %0.2f and kernel size %d x %d pixels.", sigma, kernelSize, kernelSize)));
+            end
+        end % gaussianFilter
+
+        function threshold(imageData, value, mode)
+            mode = string(mode);
+            image = double(imageData.getData());
             switch mode
                 case "=="
-                    filteredStruct.image(imageStruct.image == value) = NaN;
+                    image(image == value) = NaN;
                 case "<"
-                    filteredStruct.image(imageStruct.image < value) = NaN;
+                    image(image < value) = NaN;
                 case "<="
-                    filteredStruct.image(imageStruct.image <= value) = NaN;
+                    image(image <= value) = NaN;
                 case ">"
-                    filteredStruct.image(imageStruct.image > value) = NaN;
+                    image(image > value) = NaN;
                 case ">="
-                    filteredStruct.image(imageStruct.image >= value) = NaN;
+                    image(image >= value) = NaN;
                 otherwise
                     warning("Invalid mode selected!");
             end
 
-            if obj.logFilters
-                % display filter information
-            end
+            imageData.setData(image);
+            imageData.appendLog(string(sprintf("Discard values %s %0.2f.", mode, value)));
 
         end % threshold
 
-        function filteredStruct = meanFilter(obj, imageStruct, nSigma, mode)
+        function meanThreshold(imageData, nSigma, mode)
+            image = double(imageData.getData());
+            image(image == 0) = NaN;
 
-            filteredStruct = imageStruct;
-            filteredStruct.image = double(filteredStruct.image);
-
-            meanValue = mean(filteredStruct.image, "all");
-            stdValue = std(filteredStruct.image, 0, "all");
+            meanValue = mean(double(image), "all", "omitnan");
+            stdValue = std(double(image), 0, "all", "omitnan");
 
             threshold = meanValue + nSigma * stdValue;
 
-            filteredStruct = obj.threshold(filteredStruct, threshold, mode);
+            ImageProcessorV2.threshold(imageData, threshold, mode);
 
-            if obj.logFilters
-                % diplay filter information
-            end
         end % meanFilter
 
+        function threshold = binarize(imageData, threshold)
+            image = double(imageData.getData());
+            switch nargin
+                case 1
+                    threshold = graythresh(image);
+                case 2
+                    if isinteger(threshold)
+                        threshold = threshold / 255;
+                    else
+                        % use given threshold
+                    end
+            end
+            binaryImage = imbinarize(image, threshold);
+            imageData.setData(binaryImage);
+
+            threshold = uint8(threshold * 255);
+        end % binarize
+
+        function normalize(imageData, nBits)
+            image = double(imageData.getData());
+            image(image == 0) = NaN;
+            normalizedImage = zeros(size(image), "like", image);
+
+            for c = 1:size(normalizedImage, 3)
+                minValue = min(image, [], "all", "omitnan");
+                maxValue = max(image, [], "all", "omitnan");
+
+                if minValue == maxValue
+                    normalizedImage(:, :, c) = zeros(size(image, 1), size(image, 2), "like", image);
+                else
+                    normalizedImage(:, :, c) = 2^nBits * (image(:, :, c) - minValue) / (maxValue - minValue);
+                end
+            end
+
+            if nBits <= 8
+                normalizedImage = uint8(normalizedImage);
+            elseif nBits <= 16
+                normalizedImage = uint16(normalizedImage);
+            elseif nBits <= 32
+                normalizedImage = uint32(normalizedImage);
+            elseif nBits <= 64
+                normalizedImage = uint64(normalizedImage);
+            end
+
+            imageData.setData(normalizedImage);
+            imageData.appendLog(string(sprintf("Normalized image to %d bits.", nBits)));
+        end % normalize
 
 
-
-    end % instance methods
-    methods (Static)
-
-        function setGamma(imageData, gamma)
-            imageData.setData(imadjust(imageData.getData(), [], [], gamma));
-        end % setGamma
-
-        function medianFilter(imageData, kernelSize)
-            imageData.setData(medfilt2(imageData.getData(), [kernelSize kernelSize], "symmetric"));
-        end % medianFilter
-
-
-        function stretchedImageStruct = stretchImage(imageStruct, axis, factor)
+        function stretchedImageData = stretchImage(imageData, axis, factor)
 
             axesMap = dictionary("height", 1, "width", 2);
 
-            stretchedImageStruct = imageStruct;
-            image = stretchedImageStruct.image;
+            stretchedImageData = copy(imageData);
+            image = stretchedImageData.getData;
 
             newShape = size(image);
             newShape(axesMap(axis)) = newShape(axesMap(axis)) * factor;
-            stretchedImageStruct.image = imresize(image,newShape, "nearest"); %[newShape(1) newShape(2)]
-            stretchedImageStruct.title = "Stretched " + stretchedImageStruct.title;
+            stretchedImageData.setData(imresize(image, newShape, "nearest"));
+            stretchedImageData.title = "Stretched " + stretchedImageData.title;
 
             % display function information
             functionInfo = dbstack;
             fprintf('\n%s:\n', functionInfo(1).name);
             fprintf('\tInput Image:\t%s\n', inputname(1));
-            fprintf('\tOriginal Shape:\t%s\n', num2str(size(imageStruct.image)));
-            fprintf('\tStretched Shape:\t[%s]\n', num2str(size(stretchedImageStruct.image)));
+            fprintf('\tOriginal Shape:\t[%s]\n', num2str(size(imageData.getData())));
+            fprintf('\tStretched Shape:\t[%s]\n', num2str(size(stretchedImageData.getData())));
         end % stretchImage
 
-        function [roiImageStruct, roi] = selectROI(imageStruct)
+        function [roiImageData, roi] = selectROI(imageData)
+
+            image = imageData.getData();
             figure("Name", "ROI Selection");
-            imshow(imageStruct.image);
+            imshow(image);
             title("Select ROI. Press Enter to confirm.");
 
             rectangle = drawrectangle('Label', 'ROI', 'Color', 'r');
@@ -139,7 +222,7 @@ classdef ImageProcessorV2 < handle
 
             pause;
 
-            [imageHeight, imageWidth] = size(imageStruct.image);
+            [imageHeight, imageWidth] = size(image);
 
             % get roi position
             rectanglePosition = round(rectangle.Position); % [x, y, width, height]
@@ -154,9 +237,9 @@ classdef ImageProcessorV2 < handle
             roi = [roiMinY, roiMaxY; roiMinX, roiMaxX];
 
             % create new imageStruct to return resulting roi image
-            roiImageStruct = imageStruct;
-            roiImageStruct.image = imageStruct.image(roiMinY:roiMaxY,roiMinX:roiMaxX);
-            roiImageStruct.title = "ROI of " + roiImageStruct.title;
+            roiImageData = imageData;
+            roiImageData.setData(image(roiMinY:roiMaxY,roiMinX:roiMaxX));
+            roiImageData.title = "ROI of " + imageData.title;
 
             close;
 
@@ -168,82 +251,71 @@ classdef ImageProcessorV2 < handle
             % show roi image in new figure
             figure("Name", "ROI Display");
             title("Selected ROI. Press Enter to continue.");
-            imshow(roiImageStruct.image);
+            imshow(roiImageData.getData());
             pause;
             close;
 
         end % selectROI
 
-        function morphedImage = multiStepMorphing(binaryImage, kernelShape, kernelSize, mode, operation, figure, overlayImage)
+        function morphedImageData = multiStepMorphing(binaryImageData, kernelSize, kernelShape, mode, operation, overlayImageData)
 
-            if nargin == 5 || nargin == 7
+            assert(islogical(binaryImageData.getData()), "Image given is not binary!");
+            assert((mod(kernelSize,2)~=0), "Expected odd kernel size!");
 
-                morphedImage = binaryImage;
+            mode = string(mode);
+            operation = string(operation);
 
-                switch mode
-                    case "grow"
-                        currentKernelSize = 3;
-                        compare = @(x) x <= kernelSize;
-                    case "shrink"
-                        currentKernelSize = kernelSize;
-                        compare = @(x) x >= 3;
-                end
+            morphedImageData = copy(binaryImageData);
 
-                iteration = 1;
+            image = morphedImageData.getData();
+            overlayImage = overlayImageData.getData();
 
-                while compare(currentKernelSize)
-
-                    % create kernel
-                    filterKernel = strel(kernelShape, currentKernelSize);
-
-                    switch operation
-                        case "erode"
-                            morphedImage = imerode(morphedImage, filterKernel);
-                            channel = 1; % red for erosion
-                        case "dilate"
-                            morphedImage = imdilate(morphedImage, filterKernel);
-                            channel = 2; % green for dilation
-                        case "open" % erosion + dilation
-                            morphedImage = imopen(morphedImage, filterKernel);
-                            channel = 1; % red for opening
-                        case "close" % dilation + erosion
-                            morphedImage = imclose(morphedImage, filterKernel);
-                            channel = 2; % green for closing
-                    end
-
-                    if nargin == 7
-
-                        if ~isvalid(figure)
-                            break;
-                        end
-
-                        % generate overlay image in red
-                        originalOverlay = repmat(overlayImage, [1, 1, 3]);
-                        overlay = uint8(originalOverlay);
-                        overlay(:,:,channel) = uint8(morphedImage* 255);
-
-                        % alpha blending with the original image
-                        finalImage = uint8((double(originalOverlay) * 255 + double(overlay)) / 2);
-
-                        % Ausgabe des Bildes
-                        imshow(finalImage, 'Parent', axes('Parent', figure), "Border", "tight");
-                        set(figure, "Name", "multiStepMorphing (" + operation + ") Iteration: " + num2str(iteration) + " (kernelSize " + num2str(currentKernelSize) + ")");
-                    end
-
-                    % change kernel size for next iteration
-                    switch mode
-                        case "grow"
-                            currentKernelSize = currentKernelSize + 2;
-                        case "shrink"
-                            currentKernelSize = currentKernelSize - 2;
-                    end
-
-                    % increment the iteration counter
-                    iteration = iteration + 1;
-
-                    pause(0.25);
-                end
+            switch mode
+                case "Grow"
+                    currentKernelSize = 3;
+                    compare = @(x) x <= kernelSize;
+                    resizeKernel = @(x) x + 2;
+                case "Shrink"
+                    currentKernelSize = kernelSize;
+                    compare = @(x) x >= 3;
+                    resizeKernel = @(x) x - 2;
             end
+
+            iteration = 1;
+
+            while compare(currentKernelSize)
+
+                % create kernel
+                filterKernel = strel(lower(kernelShape), currentKernelSize);
+
+                switch operation
+                    case "Erode"
+                        image = imerode(image, filterKernel);
+                    case "Dilate"
+                        image = imdilate(image, filterKernel);
+                    case "Open" % erosion + dilation
+                        image = imopen(image, filterKernel);
+                    case "Close" % dilation + erosion
+                        image = imclose(image, filterKernel);
+                end
+
+                imshowpair(image, overlayImage, "falsecolor", "ColorChannels", "green-magenta") %[1 2 1]);
+
+                % change kernel size for next iteration
+                currentKernelSize = resizeKernel(currentKernelSize);
+
+                % increment the iteration counter
+                iteration = iteration + 1;
+
+                % short pause for better visualization
+                pause(0.25);
+            end
+            
+            % return morphed image
+            morphedImageData.setData(image);
+            morphedImageData.appendLog("Mophed image " + lower(mode) + "ing a " ...
+                + lower(kernelShape) + " kernel of size " + kernelSize + " " ...
+                + iteration + " times with operation '" + operation + "'.");
         end % multiStepMorphing
 
     end % static methods
@@ -252,9 +324,9 @@ classdef ImageProcessorV2 < handle
 
         function str = bool2str(x)
             if x
-                str='true';
+                str = "true";
             else
-                str='false';
+                str = "false";
             end
         end % bool2str
 

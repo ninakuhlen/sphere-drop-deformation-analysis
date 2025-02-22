@@ -1,6 +1,7 @@
-classdef ImageStack < handle
+classdef ImageStack < handle & matlab.mixin.Copyable
     properties (Access = private)
         data
+        units string = ["px [Y X Z]", "", "", "", "", ""];
     end % private properties
 
     properties
@@ -9,6 +10,7 @@ classdef ImageStack < handle
         format string;
         xLabel string = "Width";
         yLabel string = "Height";
+        zLabel string = "Depth";
     end % public properties
 
     methods
@@ -27,7 +29,7 @@ classdef ImageStack < handle
                 case 4
                     switch size(stackData, 3)
                         case 2
-                            obj.format = "dual channel";
+                            obj.format = "Dual Channel";
                         case 3
                             obj.format = "RGB";
                         otherwise
@@ -53,7 +55,9 @@ classdef ImageStack < handle
         end % setData
 
         function projectionImageData = project(obj, mode, axis)
-            axesMap = dictionary("Height", 1, "Width", 2, "Depth", 3);
+            mode = string(mode);
+            axis = string(axis);
+            axesMap = dictionary(obj.yLabel, 1, obj.xLabel, 2, obj.zLabel, 3);
 
             switch mode
                 case "Sum"
@@ -75,21 +79,23 @@ classdef ImageStack < handle
             end
 
             switch axis
-                case "Height"
+                case obj.yLabel
                     projectionImageData = ImageData(permute(image, [3 2 1]));
-                    projectionImageData.xLabel = "Width";
-                    projectionImageData.yLabel = "Frame";
-                case "Width"
+                    projectionImageData.yLabel = obj.zLabel;
+                    projectionImageData.xLabel = obj.xLabel;
+                case obj.xLabel
                     projectionImageData = ImageData(permute(image, [3 1 2]));
-                    projectionImageData.xLabel = "Height";
-                    projectionImageData.yLabel = "Frame";
-                case "Depth"
+                    projectionImageData.yLabel = obj.zLabel;
+                    projectionImageData.xLabel = obj.yLabel;
+                case obj.zLabel
                     projectionImageData = ImageData(image);
-                    projectionImageData.xLabel = "Width";
-                    projectionImageData.yLabel = "Height";
+                    projectionImageData.yLabel = obj.yLabel;
+                    projectionImageData.xLabel = obj.xLabel;
+                otherwise
+                    error("Invalid axis selected! Display object for a list of valid axes.")
             end
 
-            projectionImageData.title = "projection (" + mode + " along " + axis + ")";
+            projectionImageData.title = sprintf("Projection (%s along %s)", mode, axis);
         end % projectFrames
 
         function disp(obj)
@@ -100,7 +106,7 @@ classdef ImageStack < handle
             fprintf("Properties:\n");
             objectProperties = properties(obj);
             for i = 1:length(objectProperties)
-                fprintf("\t%s:\t%s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})));
+                fprintf("\t%s:\t%s %s\n", objectProperties{i}, mat2str(obj.(objectProperties{i})), obj.units(i));
             end
 
             % get all methods
@@ -118,38 +124,44 @@ classdef ImageStack < handle
             fprintf("Custom Methods:\n");
             customMethods = setdiff(allMethods, inheritedMethods);
             for i = 2:length(customMethods)
-                fprintf("\t%s\n", customMethods{i});
+                fprintf('\t%s\n', customMethods{i});
             end
         end % disp
 
     end % public methods
 
     methods (Static)
-        function imageStack = fromVideo(videoFile, mode)
-
-            switch nargin
-                case 1
-                    mode = "Filled";
-            end
+        function imageStack = fromVideo(videoFile, order)
 
             stackDims = videoFile.resolution;
             stackDims(end + 1) = videoFile.nFrames;
 
-            switch mode
-                case "Empty"
+            switch nargin
+                case 1
                     imageStack = ImageStack(zeros(stackDims));
-                case "Filled"
+                case 2
+                    order = string(order);
                     imageStack = ImageStack(zeros(stackDims));
-                    index = 0;
+                    switch order
+                        case "Normal"
+                            index = 1;
+                            step = 1;
+                        case "Reversed"
+                            index = stackDims(end);
+                            step = -1;
+                        otherwise
+                            error("Invalid order selected. Please select 'Normal' or 'Reversed'.")
+                    end
                     while true
                         try
                             frame = videoFile.getFrame();
                             frame = ImageData(frame);
-                            index = index + 1;
                         catch ME
+                            disp(ME);
                             break;
                         end
                         imageStack.setData(frame, index);
+                        index = index + step;
                     end
             end
 
