@@ -1,4 +1,4 @@
-classdef VideoFileV2 < handle
+classdef VideoFile < handle
     properties (Access = private)
         video
         originalResolution
@@ -19,7 +19,7 @@ classdef VideoFileV2 < handle
     end % public properties
     methods
 
-        function obj = VideoFileV2(fileName, format)
+        function obj = VideoFile(fileName, format)
 
             obj.video = VideoReader(obj.parentPath+fileName);
             obj.fileName = obj.video.Name;

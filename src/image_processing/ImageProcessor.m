@@ -1,10 +1,10 @@
-classdef ImageProcessorV2 < handle
+classdef ImageProcessor < handle
     properties (Access=private)
         oldImage
         newImage
     end % private properties
     methods
-        function obj = ImageProcessorV2()
+        function obj = ImageProcessor()
             
         end % ImageProcessor
 
@@ -132,7 +132,7 @@ classdef ImageProcessorV2 < handle
 
             threshold = meanValue + nSigma * stdValue;
 
-            ImageProcessorV2.threshold(imageData, threshold, mode);
+            ImageProcessor.threshold(imageData, threshold, mode);
 
         end % meanFilter
 

@@ -12,6 +12,8 @@ classdef BaslerCamera
     methods
         function obj = BaslerCamera(adaptorName, frameRate)
 
+            obj.adaptorName = adaptorName;
+
             connectionInfo = imaqhwinfo(obj.adaptorName);
 
             deviceInfo = connectionInfo.DeviceInfo
@@ -31,6 +33,7 @@ classdef BaslerCamera
             obj.deviceProperties = getselectedsource(obj.deviceConnection);
             if isvalid(obj.deviceProperties)
                 obj.deviceProperties.ExposureTime = int32(10^6 / frameRate);
+                
             end
 
             % create cleanup tasks
@@ -48,7 +51,8 @@ classdef BaslerCamera
         function frame = getFrame(obj)
 
             if ~isrunning(obj.deviceConnection)
-                start(obj.deviceConnection)
+                start(obj.deviceConnection);
+                disp("HO")
             end
 
             frame = getsnapshot(obj.deviceConnection);

@@ -16,16 +16,16 @@ fileName = "30_deg_A";
 %% PREPROCESSING
 
 % input video settings
-videoFile = VideoFileV2(fileName + ".avi", "Grayscale");
+videoFile = VideoFile(fileName + ".avi", "Grayscale");
 videoFile.setROI(200, "LR"); % 200
 videoFile.setROI(100, "CT");
 videoFile.setROI(0, "CB");
 disp(videoFile);
 
-pre = ImageProcessorV2();
+pre = ImageProcessor();
 disp(pre);
 
-rec = GeometryReconstructor(videoFile, 50, 62, {"coveredDistance", 300, "translationVelocity", 3.2});
+rec = GeometryReconstructor(videoFile, 75, 62, {"coveredDistance", 300, "translationVelocity", 3.2});
 disp(rec);
 
 if record

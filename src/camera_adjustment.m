@@ -11,6 +11,7 @@ fig = figure('Name', 'Live-Bild von der Kamera', 'NumberTitle', 'off');
 
 try
     while isvalid(fig)
+        disp("HA")
         frame = camera.getFrame();
         frame = drawCrossHair(frame);
 
